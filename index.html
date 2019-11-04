@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GS1 Digital Link Resolver Test Suite</title>
+  <script src="GS1DigitalLinkToolkit.js"></script>
+  <script src="GS1DigitalLinkResolverTestSuite.js"></script>
+  <link rel="stylesheet" href="GS1DigitalLinkResolverTestSuiteStyles.css" />
+  <style type="text/css">
+    #dlEgInput {
+      margin:1em;
+    }
+  </style>
+</head>
+<body>
+
+<header><h1>GS1 Digital Link Test Suite (under construction)</h1>
+<p>See progress in the <a href="Conformance.txt">List of conformance tests</a>.</p>
+</header>
+<main>
+
+<!-- You need an element (any kind of element) in your page with an id that is used by the test suite. If you use a different id, you'll need to update the const in the JS library accordingly -->
+<section id="gs1ResolverTests"></section>
+
+</main>
+
+
+<script>
+// This is just needed for this demo page, it's not part of the actual test suite.
+
+window.onload = setUpForm;    
+
+function setUpForm() {
+  // Set up the form to ask for a GS1 Digital Link
+  let div = document.createElement('div');
+  div.id = 'inputDiv';
+  let dlExampleInput = document.createElement('input');
+  dlExampleInput.size=40;
+  dlExampleInput.id = 'dlEgInput';
+  dlExampleInput.value = 'https://id.gs1.org/gtin/05011157888163';
+  dlExampleInput.className = 'dlTestSuiteTextInput';
+  let dlExampleInputLabel = document.createElement('label');
+  dlExampleInputLabel.for = dlExampleInput.id;
+  dlExampleInputLabel.className = 'dlTestSuiteTextLabel';
+  let t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
+  dlExampleInputLabel.appendChild(t);
+  dlExampleInputLabel.appendChild(dlExampleInput);
+
+  let submitButton = document.createElement('button');
+  submitButton.id = 'submitButton';
+  submitButton.addEventListener('click', function() {testDL(dlExampleInput.value);}, false);
+  t = document.createTextNode('Begin test'); 
+  submitButton.appendChild(t);
+
+  div.appendChild(dlExampleInputLabel);
+  div.appendChild(submitButton);
+
+  var g = document.getElementById(outputElement);
+  g.appendChild(div);
+}
+
+</script>
+
+</body></html>

@@ -1,0 +1,23 @@
+Summarising the preceding discussion, a GS1 conformant resolver:
+[DONE]        1.	SHALL support HTTP 1.1 (or higher) GET, HEAD and OPTIONS requests.
+[DONE]        2.	SHALL support HTTP Over TLS (HTTPS)
+[DONE]        3.	SHALL support CORS
+[DONE]        4.  SHALL be able to decompress a URI to generate a GS1 Digital Link URI, in accordance with section 10.
+[DONE]        5.  If handling a compressed request URI, it SHALL expose the uncompressed URI in the Link response header with a rel value of owl:sameAs.
+[Not needed]  6.	MAY support additional decompression algorithms (flowchart C4, section Compression procedure and flowcharts).
+[DONE]	      7.  SHALL extract and syntactically validate the URI in accordance with sections 6 and 8.3.1, and report errors with an HTTP response code of 400.
+[DONE]	      8.  SHOULD ignore trailing slashes (section 11.5)
+[DONE]	      9.  A GS1 conformant resolver SHALL NOT use a 200 OK response code with a resource that indicates an error condition.
+[Not needed] 10.	MAY support additional key-value pairs in the query string (section 6.9.1)
+[DONE]	     11.  SHALL respond to a query parameter of linkType set to all by returning a list of links available to the client application. The list SHALL be available as JSON, SHOULD be available as JSON-LD and MAY be available in HTML and any other formats,  served through content negotiation. If the request GS1 Digital Link URI includes one or more key qualifiers, any links associated with each level up to the primary key SHALL be included (section 8.7.4). The URI used as the subject of facts presented SHALL be the uncompressed version.
+[DONE]       12.	SHALL expose the full list of links available to the client in an HTTP Link header when redirecting.
+[DONE]       13.	SHALL recognise one available linkType as the default for any given request URI and, within that, SHALL recognise one default link (section 8.7.2).
+[DONE]       14.	All links exposed SHALL include the target URL, the link relationship type (the linkType) and a human-readable title (section 8.4)
+[DONE]       15.	SHALL redirect to the requested linkType if available (section 8.7.3).
+[DONE]       16.	By default, SHALL pass on all key=value pairs in the query string of the request URI (if present) when redirecting.
+[Not needed] 17.	MAY support use of the Accept-Language and Accept HTTP Request Headers (section 8.7.6), and the context keyword in the query string, to disambiguate between multiple links of the same linkType (section 8.7.5)
+[DONE]       18.	SHALL provide a resolver description file at /.well-known/gs1resolver (section 8.11)
+[TO DO]      19.	If supporting multiple links per identified item, SHALL recognise the GS1 Web vocabulary namespace, noting its change management practice. A resolver SHOULD recognise the schema.org namespace. A resolver MAY recognise additional namespaces but link types defined elsewhere SHALL NOT duplicate link types available from GS1 and schema.org.
+[TO DO]      20.	If supporting redirection based on a Global Company Prefix with no further processing taking place on the resolver, redirections SHALL be annotated with the gs1:handledBy link type (section 8.7.1).
+[Not tested but taken into account] MAY provide content directly with no redirection (section 8.8).
+[DONE]       22.	SHOULD tolerate trailing slashes at the end of GS1 Digital Link URIs, i.e. the resolver SHOULD NOT fail if one is present (section 11.5).
