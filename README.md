@@ -3,7 +3,7 @@ This is the test suite that can be used to assess whether a resolver conforms to
  
  A [demo is available](https://gs1.github.io/GS1DL-resolver-testsuite/)
 
-Note that work on this test suite is not yest complete. The list of conformance criteria and whether or not tests have been implemented is in [Conformance.txt].
+Note that work on this test suite is not yest complete. The list of conformance criteria and whether or not tests have been implemented is in a [separate file](Conformance.txt).
 
  
  The test suite is written as a JavaScript function that takes a GS1 Digital Link URI as input. This should be an example from your resolver. Load the script file (GS1DigitalLinkResolverTestSuite.js) into your page, as well as the [GS1 Digital Link Toolkit](https://github.com/gs1/GS1DigitalLinkToolkit.js), and then arrange for your sample DL URL to be passed to the `testDL()` function. 
