@@ -137,12 +137,14 @@ console.log('Domain is '+ domain);
   tlsOK.test = 'SHALL support HTTP Over TLS (HTTPS)';
   tlsOK.msg = 'Resolver does not support HTTP over TLS';
   recordResult(tlsOK);
+	
+//  fetch('https://hintleshamandchattisham.onesuffolk.net/', {  // Used for debugging, this is one of the few sites I know that doesn't support https!
   fetch('https://' + domain, {
-    method: 'HEAD'
+    method: 'HEAD',
+    mode: 'no-cors'
     })
     .then(function (response) {
-    console.log(response);
-    if (response.ok) {
+    if (parseInt(response.status, 10) >= 0) {   // status is usually 0 for a site that supports https, I think 'cos we're using non-cors mode. 
       tlsOK.msg = 'Confirmed that server supports HTTP over TLS';
       tlsOK.status = 'pass';
     }
