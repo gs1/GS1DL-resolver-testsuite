@@ -131,18 +131,21 @@ function testDL(dl) {
 function TLSCheck(domain) {
   // This is designed to make sure that the server is available over TLS (i.e. using https works, even if the given DL is http)
   // It does not handle a JSON response and therefore we don't use the promises array
-console.log('Domain is '+ domain);
+  // It's a bit flaky - if you can improve on this, please do.
+  console.log('Domain is '+ domain);
   let tlsOK = Object.create(resultProps);
   tlsOK.id = 'tlsOK';
   tlsOK.test = 'SHALL support HTTP Over TLS (HTTPS)';
   tlsOK.msg = 'Resolver does not support HTTP over TLS';
   recordResult(tlsOK);
+
+//  fetch('https://hintleshamandchattisham.onesuffolk.net/', {  // Used for debugging, this is one of the few sites I know that doesn't support https!
   fetch('https://' + domain, {
-    method: 'HEAD'
+    method: 'HEAD',
+    mode: 'no-cors'
     })
     .then(function (response) {
-    console.log(response);
-    if (response.ok) {
+    if (parseInt(response.status, 10) >= 0) {   // status is usually 0 for a site that supports https, I think 'cos we're using non-cors mode. 
       tlsOK.msg = 'Confirmed that server supports HTTP over TLS';
       tlsOK.status = 'pass';
     }
