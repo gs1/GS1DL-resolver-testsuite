@@ -213,7 +213,9 @@ function headerBasedChecks(dl) {
   let u = stripQuery(dl);
   corsCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
   corsCheck.process = function(data) {
-    if ((data.result['access-control-allow-methods'].indexOf('OPTIONS') !== -1) && (data.result['access-control-allow-origin'] != '')) {
+  //    if ((data.result['access-control-allow-methods'].indexOf('OPTIONS') !== -1) && (data.result['access-control-allow-origin'] != '')) {
+  console.log('Looking for access control header ' + data.result['access-control-allow-origin']);
+    if (data.result['access-control-allow-origin'] != '') {
       // That's probably enough tbh
       corsCheck.status = 'pass';
       corsCheck.msg = 'CORS headers detected';
