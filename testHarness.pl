@@ -17,6 +17,38 @@ my @reqHeaders = (
   'Accept' => '*/*'
 );
 
+my %h = &parseQuery($ENV{'QUERY_STRING'});
+
+my $text;
+
+print "Content-type: application/json\n\n";
+
+if ($h{'test'}) { # So we have a test to carry out
+  if (($h{'test'} eq 'getHTTPversion') && ($h{'testVal'})) {
+    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","result":"';
+    $text .= getHTTPversion($h{'testVal'});
+    $text .= '"}';
+  } elsif (($h{'test'} eq 'getAllHeaders') && ($h{'testVal'})) {
+    my $accept;
+    if ($h{'accept'} eq 'json') {
+      $accept = 'application/json';
+    } elsif ($h{'accept'} eq 'jld') {
+      $accept = 'application/ld+json';
+    } else {
+      $accept = '*/*';
+    }
+    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","accept":"'.$accept.'","result":';
+    $text .= getAllHeaders($h{'testVal'}, $accept);
+    $text =~ s/(.*),$/$1/;  # Remove final comma
+    $text .= '}}';
+  }
+} else {
+    $text .= "No command received\n";
+}
+
+
+print $text;
+
 
 ## Helper functions ##
 
@@ -46,11 +78,6 @@ sub url_decode {
   $r =~ s/%([a-f0-9][a-f0-9])/chr( hex( $1 ) )/gei;
   return $r;
 }
-
-my %h = &parseQuery($ENV{'QUERY_STRING'});
-
-my $text;
-
 
 sub getHTTPversion {
   $_ = shift;
@@ -95,40 +122,11 @@ sub getAllHeaders {
       }
     }
   }
-#  $text .= '"content":"'.$response->content().'",';
   return $text;
 }
 
 
 ###########################################
-
-print "Content-type: application/json\n\n";
-
-if ($h{'test'}) { # So we have a test to carry out
-  if (($h{'test'} eq 'getHTTPversion') && ($h{'testVal'})) {
-    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","result":"';
-    $text .= getHTTPversion($h{'testVal'});
-    $text .= '"}';
-  } elsif (($h{'test'} eq 'getAllHeaders') && ($h{'testVal'})) {
-    my $accept;
-    if ($h{'accept'} == 'json') {
-      $accept = 'application/json';
-    } elsif ($h{'accept'} == 'jld') {
-      $accept = 'application/ld+json';
-    } else {
-      $accept = '*/*';
-    }
-    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","accept":"'.$accept.'","result":';
-    $text .= getAllHeaders($h{'testVal'}, $accept);
-    $text =~ s/(.*),$/$1/;  # Remove final comma
-    $text .= '}}';
-  }
-} else {
-    $text .= "No command received\n";
-}
-
-
-print $text;
 
 
 # A little function useful for debugging

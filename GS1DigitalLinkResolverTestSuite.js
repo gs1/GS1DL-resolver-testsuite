@@ -91,7 +91,7 @@ function testDL(dl) {
           recordResult(validDL);
         }
       } catch(err) {
-      	console.log(err);    // Don't actually want to stop processing.  validInputCheck.status is our flag for future processing
+      	console.log('Error when extracting keys from given DL. Message is ' + err);    // Don't actually want to stop processing.  validInputCheck.status is our flag for future processing
       }
     } // End is it a URL
     if (scheme == 'https') {
@@ -121,7 +121,7 @@ function testDL(dl) {
 
     // Now we run all the fetch-based tests one after the other. Promise-based means they don't all happen at once.
     testList.reduce(
-      (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation: ', error.message)),
+      (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
       Promise.resolve()
     );
   } // End validDL.status=='pass'
@@ -151,7 +151,7 @@ console.log('Domain is '+ domain);
     recordResult(tlsOK);
   })
     .catch(function(error) {
-    console.log('There has been a problem with your fetch operation: ', error.message);
+    console.log('There has been a problem with your fetch operation when checking for TLS support: ', error.message);
   });
   return tlsOK;
 }
@@ -215,8 +215,7 @@ function headerBasedChecks(dl) {
   let u = stripQuery(dl);
   corsCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
   corsCheck.process = function(data) {
-  //    if ((data.result['access-control-allow-methods'].indexOf('OPTIONS') !== -1) && (data.result['access-control-allow-origin'] != '')) {
-  console.log('Looking for access control header ' + data.result['access-control-allow-origin']);
+  // console.log('Looking for access control header ' + data.result['access-control-allow-origin']);
     if (data.result['access-control-allow-origin'] != '') {
       // That's probably enough tbh
       corsCheck.status = 'pass';
@@ -288,7 +287,7 @@ function headerBasedChecks(dl) {
       }
       // Now we can test those links one by one.
       linkArray.reduce(
-        (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation: ', error.message)),
+        (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
         Promise.resolve()
       );
 
@@ -395,7 +394,7 @@ function trailingSlashCheck(dl) {
       }
     })
     .catch(function(error) {
-      console.log('There has been a problem with your fetch operation: ', error.message)
+      console.log('There has been a problem with your fetch operation for ' + slashRequest.url + ': ', error.message)
     });
   }
   return trailingSlash;
@@ -430,10 +429,11 @@ function compressionChecks(dl, domain, gs1dlt) {
     })
     fetch(compressedRequest)
     .then(function(response) {
-      defaultHeaders = response.json();
-      return defaultHeaders;
+      rj = response.json();
+      return rj;
     })
     .then(function(compressedJSON) {
+
       // OK, we have our two JSON objects and we can look for key points of similarity
       // We should get the same redirect or 200 for both compressed and not compressed
       if ((data.result.httpCode == compressedJSON.result.httpCode) && (data.result.location == compressedJSON.result.location)) {
@@ -462,7 +462,7 @@ function compressionChecks(dl, domain, gs1dlt) {
       }
     })
     .catch(function(error) {
-      console.log('There has been a problem with your fetch operation: ', error.message)
+      console.log('There has been a problem with your fetch operation for ' + compressedRequest.url + ' ( testing ' + compDL + '): ', error.message)
     });
   }
   return validDecompressCheck;
@@ -605,8 +605,8 @@ function testQuery(dl) {
   qsPassedOn.status = 'warn';
   recordResult(qsPassedOn);
   let u = stripQuery(dl);
-  let query = '?foo=bar';
-  qsPassedOn.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u + query);
+  let query = 'foo=bar';
+  qsPassedOn.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u + '?' + query);
   qsPassedOn.process = function(data) {
     if (data.result.location != undefined) {          // There is a redirection
       if (data.result.location.indexOf(query) > -1) { // Our query is being passed on
