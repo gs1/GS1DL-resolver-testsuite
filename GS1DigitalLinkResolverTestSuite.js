@@ -274,13 +274,25 @@ function headerBasedChecks(dl) {
         linkArray[i].msg = 'Requesting link type of ' + linkArray[i].rel + ' does not redirect to correct target URL (' + linkArray[i].href + ')';
         linkArray[i].test = 'SHALL redirect to the requested linkType if available';
         linkArray[i].url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u + '?linkType=' + linkArray[i].rel);
+        if (linkArray[i].hreflang != '') {  // We have a specific language to deal with
+          linkArray[i].url += '&acceptLang=' + linkArray[i].hreflang;
+        }
+        // Really need to sort out why I can't pass a media type. I've spent hours trying to fix that bug.
+        // For now, we handle JSON, JSON-LD and... everything else.
+        // But at least language seems to work now 2020-01-13
+        // console.log('here with ' + linkArray[i].url);
+
         recordResult(linkArray[i]);
         linkArray[i].process = function(data) {
         // Strip the query strings before matching (should probably be more precise about this. Might be important info in target URL that we're missing)
         let l = stripQuery(data.result.location);
         let k = stripQuery(linkArray[i].href);
           if (l == k) {  // redirection target is correct
-            linkArray[i].msg = 'Requesting link type of ' + linkArray[i].rel + ' redirects to correct target URL (' + linkArray[i].href + ')';
+            linkArray[i].msg = 'Requesting link type of ' + linkArray[i].rel;
+            if (linkArray[i].hreflang != '') {
+              linkArray[i].msg += ' (with language set to ' + linkArray[i].hreflang + ')';
+            }
+            linkArray[i].msg += ' redirects to correct target URL (' + linkArray[i].href + ')';
             linkArray[i].status = 'pass';
           }
         }
