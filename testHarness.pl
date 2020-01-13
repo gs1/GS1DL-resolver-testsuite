@@ -37,8 +37,9 @@ if ($h{'test'}) { # So we have a test to carry out
     } else {
       $accept = '*/*';
     }
+    my $acceptLang = $h{'acceptLang'} ne '' ? $h{'acceptLang'} : 'en';
     $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","accept":"'.$accept.'","result":';
-    $text .= getAllHeaders($h{'testVal'}, $accept);
+    $text .= getAllHeaders($h{'testVal'}, $accept, $acceptLang);
     $text =~ s/(.*),$/$1/;  # Remove final comma
     $text .= '}}';
   }
@@ -90,9 +91,11 @@ sub getHTTPversion {
 sub getAllHeaders {
   my $uri = shift;
   my $accept = shift;
+  my $acceptLang = shift;
   my @reqHeaders = (
     'User-Agent' => UAstring,
-    'Accept' => $accept
+    'Accept' => $accept,
+    'Accept-Language' => $acceptLang
   );
 
   my $response = $browser->head($uri, @reqHeaders);		# Do head request
