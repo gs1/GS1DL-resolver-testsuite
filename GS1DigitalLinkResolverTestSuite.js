@@ -229,7 +229,16 @@ function headerBasedChecks(dl) {
     }
 
     if (data.result.link != null) {   // we have a link header. We'll now test that each link has the required attributes
-      let allLinks = data.result.link.split(','); // allLinks is an array of what's available
+
+    // The structure we're dealing with is:
+    // <url>; rel="val"; type="val"; hreflang="val"; title="val", {next}
+    // Tempting to split on the comma but titles can include commas, so we'll split on ", and then
+    // push a comma back on the end of each one
+
+      let allLinks = data.result.link.split(/",/);
+      for (var i=0; i< allLinks.length; i++) {
+        allLinks[i] += '"';
+      }
       // We'll use a series of regular expressions to extract the relevant metadata for each link since order is unimportant
       // RegExes are computationally expensive but performance is not a key issue here
 
@@ -253,17 +262,17 @@ function headerBasedChecks(dl) {
         } else {
           linkMetadata.status = 'fail'; console.log('No link type (rel) declared for ' + linkObj.href + ' (link ' + link + ')')
         }
-        if (titleRE.test(allLinks[link])) {
+        if (titleRE.test(allLinks[link])) {   // owl:sameAs doesn't need a title
           linkObj.title = titleRE.exec(allLinks[link])[1]
-        } else {
-          linkMetadata.status = 'fail'; console.log('No title given for ' + linkObj.href + ' (link ' + link + ')')
+        } else if (linkObj.rel != 'owl:sameAs') {
+          linkMetadata.status = 'fail'; console.log('No title given for ' + linkObj.href + ' (link ' + allLinks[link] + ')')
         }
         //Those are the SHALLs, now we'll record the others for future use
         linkObj.hreflang = hreflangRE.exec(allLinks[link]) == null ? '' : hreflangRE.exec(allLinks[link])[1];
         linkObj.type = typeRE.exec(allLinks[link]) == null ? '' : typeRE.exec(allLinks[link])[1];
 
         // If we still have linkMetadata.status == 'pass' at this point, then we can go ahead and test that link in more detail
-        if (linkMetadata.status == 'pass') {linkArray.push(linkObj)}
+        if ((linkMetadata.status == 'pass') && (linkObj.rel != 'owl:sameAs')) {linkArray.push(linkObj)}
       }
 
       // Now we want to set up tests for all the links in linkArray
