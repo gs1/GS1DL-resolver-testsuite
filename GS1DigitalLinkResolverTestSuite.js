@@ -402,8 +402,7 @@ function trailingSlashCheck(dl) {
     })
     fetch(slashRequest)
     .then(function(response) {
-      defaultHeaders = response.json();
-      return defaultHeaders;
+      return response.json();
     })
     .then(function(slashJSON) {
       // OK, we have our two JSON objects and we can look for key points of similarity
@@ -440,36 +439,34 @@ function compressionChecks(dl, domain, gs1dlt) {
   recordResult(exposeDecompressedLink);
 
   // Unlike the header-based tests, we preserve the query string for this test
+  // console.log('Uncompressed url is ' + perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(dl));
   validDecompressCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(dl);
   validDecompressCheck.process = function(data) {
     let compDL = gs1dlt.compressGS1DigitalLink(dl, false, 'https://' + domain, false, true, false);
-    //  console.log('Compressed URI is ' + compDL);
+    // console.log('Compressed URI is ' + perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(compDL));
     compressedRequest = new Request(perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(compDL), {
-      method:'head',
+      method:'get',
       mode: 'cors'
     })
     fetch(compressedRequest)
     .then(function(response) {
-      rj = response.json();
-      return rj;
+      return response.json();
     })
     .then(function(compressedJSON) {
-
       // OK, we have our two JSON objects and we can look for key points of similarity
       // We should get the same redirect or 200 for both compressed and not compressed
+      // console.log('comparing ' + data.result.httpCode + ' with ' + compressedJSON.result.httpCode);
       if ((data.result.httpCode == compressedJSON.result.httpCode) && (data.result.location == compressedJSON.result.location)) {
         validDecompressCheck.status = 'pass';
-        validDecompressCheck.msg = 'Response from server identical for compressed and uncompressed GS1 Digital link URI'
+        validDecompressCheck.msg = 'Response from server identical for compressed and uncompressed GS1 Digital link URI';
         recordResult(validDecompressCheck); 
       }
       // Now we're looking for the uncompressed version in the link header
-      if (compressedJSON.result.link.indexOf(dl) > -1) {   // It's in there, now we have to check for presence of owl:sameAs @rel
+      let numericDL = numericOnly(dl);
+      if (compressedJSON.result.link.indexOf(numericDL) > -1) {   // It's in there, now we have to check for presence of owl:sameAs @rel
         let allLinks = compressedJSON.result.link.split(',');
         let i = 0;
-        while (allLinks[i].indexOf(dl) == -1) {i++}    // We know it's there somewhere because we just tested for it
-
-        // ****************** This block not fully tested as id.gs1.org fails at the moment (2019-10-18) **************
-
+        while (allLinks[i].indexOf(numericDL) == -1) {i++}    // We know it's there somewhere because we just tested for it
         let re = /(rel=.owl:sameAs)|(rel=.http:\/\/www.w3.org\/2002\/07\/owl#sameAs)/;
         if (allLinks[i].search(re) != -1) {
           exposeDecompressedLink.status = 'pass';
@@ -655,9 +652,33 @@ function stripQuery(u) {
   return u.indexOf('?') > -1 ? u.substring(0, u.indexOf('?')) : u;
 }
 
+function numericOnly(dl) {    // Bound to be a better way of doing this but this is nice and simple
+  let rv = dl.replace('gtin', '01');
+  rv = rv.replace('itip', '8006');
+  rv = rv.replace('gmn', '8013');
+  rv = rv.replace('cpid', '8010');
+  rv = rv.replace('shipTo', '410');
+  rv = rv.replace('billTo', '411');
+  rv = rv.replace('purchasedFrom', '412');
+  rv = rv.replace('shipFor', '413');
+  rv = rv.replace('gln', '414');
+  rv = rv.replace('payTo', '415');
+  rv = rv.replace('glnProd', '416');
+  rv = rv.replace('party', '417');
+  rv = rv.replace('gsrnp', '8017');
+  rv = rv.replace('gsrn', '8018');
+  rv = rv.replace('gcn', '255');
+  rv = rv.replace('sscc', '00');
+  rv = rv.replace('gdti', '253');
+  rv = rv.replace('ginc', '401');
+  rv = rv.replace('gsin', '402');
+  rv = rv.replace('grai', '8003');
+  rv = rv.replace('giai', '8004');
+  return rv;
+}
+
 
 // This is the function called by 'reducing' the list of tests 
-
 function runTest(test) {  
   return new Promise((resolve, reject) => {
   fetch(test.url)
