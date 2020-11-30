@@ -1,7 +1,7 @@
 # GS1DL-resolver-testsuite
 This is the test suite that can be used to assess whether a resolver conforms to the GS1 Digital Link standard.
  
- <!-- A [demo is available](https://gs1.github.io/GS1DL-resolver-testsuite/) -->
+ A [demo is available](https://gs1.github.io/GS1DL-resolver-testsuite/)
 
 Note that work on this test suite is not yest complete. The list of conformance criteria and whether or not tests have been implemented is in a [separate file](Conformance.txt).
 
