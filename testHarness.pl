@@ -12,10 +12,19 @@ use LWP::UserAgent;
 use constant UAstring => 'GS1_Resolver_Test/0.1';
 my $browser= LWP::UserAgent-> new();
 $browser->requests_redirectable([]); #(suppress all redirects, we want the resolver's response, not the target's)
-my @reqHeaders = (
-  'User-Agent' => UAstring,
-  'Accept' => '*/*'
-);
+
+# We want to pass on the request headers received from the calling application
+# Make no assumptions about what the values should be. If no value is set by the client, don't set it here (so default is null).
+my @reqHeaders = ();
+if ($ENV{'HTTP_USER_AGENT'}) {
+  push(@reqHeaders, 'User-Agent' => $ENV{'HTTP_USER_AGENT'});
+}
+if ($ENV{'HTTP_ACCEPT'}) {
+  push(@reqHeaders, 'Accept' => $ENV{'HTTP_ACCEPT'});
+}
+if ($ENV{'HTTP_ACCEPT_LANGUAGE'}) {
+  push(@reqHeaders, 'Accept-language' => $ENV{'HTTP_ACCEPT_LANGUAGE'});
+}
 
 my %h = &parseQuery($ENV{'QUERY_STRING'});
 
@@ -29,17 +38,8 @@ if ($h{'test'}) { # So we have a test to carry out
     $text .= getHTTPversion($h{'testVal'});
     $text .= '"}';
   } elsif (($h{'test'} eq 'getAllHeaders') && ($h{'testVal'})) {
-    my $accept;
-    if ($h{'accept'} eq 'json') {
-      $accept = 'application/json';
-    } elsif ($h{'accept'} eq 'jld') {
-      $accept = 'application/ld+json';
-    } else {
-      $accept = '*/*';
-    }
-    my $acceptLang = $h{'acceptLang'} ne '' ? $h{'acceptLang'} : 'en';
-    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","accept":"'.$accept.'","result":';
-    $text .= getAllHeaders($h{'testVal'}, $accept, $acceptLang);
+    $text = '{"test":"'.$h{'test'}.'","testVal":"'.$h{'testVal'}.'","result":';
+    $text .= getAllHeaders($h{'testVal'});
     $text =~ s/(.*),$/$1/;  # Remove final comma
     $text .= '}}';
   }
@@ -66,12 +66,6 @@ sub parseQuery {
   return @h;
 }
 
-sub url_encode {
-  my $r = shift;
-  $r =~ s/([^a-z0-9_.!~*'() -])/sprintf "%%%02X", ord($1)/gei;
-  $r =~ tr/ /+/;
-  return $r;
-}
 
 sub url_decode {
   my $r = shift;
@@ -90,13 +84,8 @@ sub getHTTPversion {
 
 sub getAllHeaders {
   my $uri = shift;
-  my $accept = shift;
-  my $acceptLang = shift;
-  my @reqHeaders = (
-    'User-Agent' => UAstring,
-    'Accept' => $accept,
-    'Accept-Language' => $acceptLang
-  );
+#  my $accept = shift;
+#  my $acceptLang = shift;
 
   my $response = $browser->head($uri, @reqHeaders);		# Do head request
 #  die "Hmm, error \"", $response->status_line(), "\" when getting $uri" unless $response->is_success(); # We do't actually want to fail on non 2xx codes
@@ -105,7 +94,9 @@ sub getAllHeaders {
   $text .= '"httpCode":"'.$response->code().'",';   # We want the HTTP codes in our result object, even though they're not actual HTTP headers
   $text .= '"httpMsg":"'.$response->message().'",';
   $text .= '"requestURI":"'.$ENV{'QUERY_STRING'}.'",';
-  $text .= '"AcceptHeader":"'.$accept.'",';
+  $text .= '"Requesting_User_Agent":"'.$ENV{'HTTP_USER_AGENT'}.'",';
+  $text .= '"Requesting_Accept_Header":"'.$ENV{'HTTP_ACCEPT'}.'",';
+  $text .= '"Requesting_Accept_Language":"'.$ENV{'HTTP_ACCEPT_LANGUAGE'}.'",';
   foreach my $h (@headersObject) {
     for my $header (keys %$h) {
       if (ref($h->{$header}) eq 'ARRAY') {  # This happens if the server sends multiple headers of the same type, which seems to be allowed :-(

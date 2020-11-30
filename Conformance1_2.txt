@@ -1,0 +1,18 @@
+SHALL support HTTP 1.1 (or higher) GET, HEAD and OPTIONS requests.
+SHALL support HTTP Over TLS (HTTPS)
+SHALL support CORS
+SHALL be able to decompress a URI to generate a GS1 Digital Link URI, in accordance with GS1 Digital Link: Compression [DL-Compression].
+If handling a compressed request URI, it SHALL expose the uncompressed URI in the Link response header with a rel value of owl:sameAs.
+SHALL extract and syntactically validate the URI in accordance with sections 2 and 4.3.1, and report errors with an HTTP response code of 400.
+SHALL NOT use a 200 OK response code with a resource that indicates an error condition (section 4.3).
+SHALL respond to a query parameter of linkType set to linkset by returning a list of links available to the client application. The list SHALL be available as per Linkset: Media Types and a Link Relation Type for Link Sets. If the request GS1 Digital Link URI includes one or more key qualifiers, any links associated with each level up to the primary key SHALL be included. The URI used as the subject of facts presented SHALL be the uncompressed version.
+SHOULD expose link to the linkset in an HTTP Link header, even when redirecting.
+SHALL recognise one available link as the default for any given request URI.
+All links exposed SHALL include the target URL, the link relationship type (the link type) and a human-readable title
+SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.
+SHALL redirect to the requested linkType if available
+By default, SHALL pass on all key=value pairs in the query string of the request URI (if present) when redirecting.
+SHALL provide a resolver description file at /.well-known/gs1resolver.
+If supporting multiple links per identified item, SHALL recognise the GS1 Web vocabulary namespace, noting its change management practice. A resolver MAY recognise additional namespaces but link types defined elsewhere SHALL NOT duplicate link types available from GS1.
+If supporting redirection based on an MO or Global Company Prefix with no further processing taking place on the resolver, redirections SHALL be annotated with the gs1:handledBy link type.
+SHOULD tolerate trailing slashes at the end of GS1 Digital Link URIs, i.e. the resolver SHOULD NOT fail if one is present.

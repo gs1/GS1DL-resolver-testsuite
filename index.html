@@ -14,8 +14,8 @@
 </head>
 <body>
 
-<header><h1>GS1 Digital Link Test Suite (under construction)</h1>
-<p>See progress in the <a href="Conformance.txt">List of conformance tests</a>.</p>
+<header><h1>GS1 Digital Link Test Suite</h1>
+<p>Conformance tests for <a href="Conformance.txt">version 1.1</a>, <a href="Conformance1_2.txt">version 1.2</a>.</p>
 </header>
 <main>
 
@@ -34,6 +34,35 @@ function setUpForm() {
   // Set up the form to ask for a GS1 Digital Link
   let div = document.createElement('div');
   div.id = 'inputDiv';
+  let p = document.createElement('p');
+  let dlVersionButton = document.createElement('input');
+  dlVersionButton.id = '_1_1';
+  dlVersionButton.type = 'radio';
+  dlVersionButton.name = 'version';
+  dlVersionButton.value = '1.1';
+  let versionLabel = document.createElement('label');
+  versionLabel.htmlFor = '_1_1';
+  let t = document.createTextNode('Test for GS1 Digital Link version 1.1');
+  versionLabel.appendChild(t);
+  versionLabel.appendChild(dlVersionButton);
+  p.appendChild(versionLabel);
+
+  dlVersionButton = document.createElement('input');
+  dlVersionButton.id = '_1_2';
+  dlVersionButton.type = 'radio';
+  dlVersionButton.name = 'version';
+  dlVersionButton.value = '1.2';
+  dlVersionButton.checked = true;
+  versionLabel = document.createElement('label');
+  versionLabel.htmlFor = '_1_2';
+  t = document.createTextNode('Test for GS1 Digital Link version 1.2');
+  versionLabel.appendChild(t);
+  versionLabel.appendChild(dlVersionButton);
+  p.appendChild(versionLabel);
+  div.appendChild(p);
+
+
+
   let dlExampleInput = document.createElement('input');
   dlExampleInput.size=40;
   dlExampleInput.id = 'dlEgInput';
@@ -42,13 +71,20 @@ function setUpForm() {
   let dlExampleInputLabel = document.createElement('label');
   dlExampleInputLabel.for = dlExampleInput.id;
   dlExampleInputLabel.className = 'dlTestSuiteTextLabel';
-  let t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
+  t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
   dlExampleInputLabel.appendChild(t);
   dlExampleInputLabel.appendChild(dlExampleInput);
 
   let submitButton = document.createElement('button');
   submitButton.id = 'submitButton';
-  submitButton.addEventListener('click', function() {testDL(dlExampleInput.value);}, false);
+  submitButton.addEventListener('click', function() {
+    let versionNumber = '';
+    let ele = document.getElementsByName('version');
+    for(i = 0; i < ele.length; i++) {
+      if(ele[i].checked) {versionNumber = ele[i].value}
+    }
+    testDL(dlExampleInput.value, versionNumber);
+  }, false);
   t = document.createTextNode('Begin test'); 
   submitButton.appendChild(t);
 

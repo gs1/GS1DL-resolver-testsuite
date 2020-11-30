@@ -5,7 +5,8 @@ const resultProps = {
   "test" : "", // conformance statement from spec
   "status" : "fail", // (pass|fail|warn), default is fail
   "msg" : "", // Displayed to the end user
-  "url" : "" // The URL we're going to fetch
+  "url" : "", // The URL we're going to fetch
+  "headers" : {}  // Ready for any headers we want to set
 }
 
 const linkProps = {
@@ -18,19 +19,32 @@ const linkProps = {
 
 const perlTests = 'https://philarcher.org/cgi-bin/testHarness.pl';
 
+// const RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+const RabinRegEx = /^((https?):)(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+// (see https://www.w3.org/TR/powder-grouping/#rabinsRegEx for the origin of this regex by Jo Rabin)
+// gives [2] scheme, [4] domain,[9] port, [10] path, [12] query, [14] fragment
+
+const plausibleDlURI = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?(([^?#]*)\/(01|gtin|8006|itip|8013|gmn|8010|cpid|414|gln|417|party|8017|gsrnp|8018|gsrn|255|gcn|00|sscc|253|gdti|401|ginc|402|gsin|8003|grai|8004|giai)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?/;
+
+const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?(([^?#]*)\/(01|8006|8013|8010|414|417|8017|8018|255|00|253|401|402|8003|8004)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?/;
+
+const linkTypeListSource = 'https://gs1.github.io/WebVoc/gs1Voc_v1_3.jsonld';
+
+// Global variables
 let testList =[];
 let resultsArray = [];
-
-
+let domain;
+let gs1dlt = new GS1DigitalLinkToolkit();
 
 
 // ***************************************************************************
 // This is the main function that takes a Digital Link URI as input and creates the output.
+// The second parameter can be used to switch individual tests on and off to
+// test against the relevant version of the DL spec.
 // ***************************************************************************
 
-function testDL(dl) {
+function testDL(dl, dlVersion) {
   // First we want to test whether the given input is a URL or not.
-
   // Set up the a results object for testing whether what we have is a URL or not
   let isURL = Object.create(resultProps);
   isURL.id = 'isURL';
@@ -57,42 +71,15 @@ function testDL(dl) {
   dl = dl.replace(/(^\s+|\s+$)/g, '');  // Remove leading and trailing spaces
   console.log('Given GS1 Digital Link URI is "' + dl + '"');
   let UriElements;
-  let RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
-  // (see https://www.w3.org/TR/powder-grouping/#rabinsRegEx for the origin of this regex by Jo Rabin)
-
-  // A couple of things we need to be portable...
-
-  let domain; // We need this to be portable. Others below aren't needed outside the code block.
-  let gs1dlt = new GS1DigitalLinkToolkit();
 
   if (UriElements = dl.match(RabinRegEx)) {
-    //  for (i in UriElements) {console.log('i is ' + i + ' which is ' + UriElements[i])}
     let scheme = UriElements[2];
-    domain = UriElements[4];
-    let port = UriElements[9];
-    let path = UriElements[10];
-    let query = UriElements[12];
-    let frag = UriElements[14];
+    domain = UriElements[4];  // Sets this global variable
     if (((scheme == 'http') || (scheme == 'https')) && (domain.indexOf('.') != -1)) {
       isURL.msg = 'Given GS1 Digital Link URI is a valid URL';
       isURL.status = 'pass';
       recordResult(isURL);
-
       // At this point we probably have a URL and we have its various elements,
-      // But we should check to see if it's a valid DL URL which we can do using the DL toolkit
-
-      try {
-  	    let gs1Array = gs1dlt.extractFromGS1digitalLink(dl); 
-        // You can get here with a variety of URLs including just a domain name and /gtin etc. So we need to check further
-        // Object returned has a GS1 object within it. Test for that using Mark's code
-        if (gs1dlt.buildStructuredArray(gs1Array.GS1).identifiers.length == 1) {
-          validDL.status = 'pass';
-          validDL.msg = 'Given input is a valid GS1 Digital Link URI';
-          recordResult(validDL);
-        }
-      } catch(err) {
-      	console.log('Error when extracting keys from given DL. Message is ' + err);    // Don't actually want to stop processing.  validInputCheck.status is our flag for future processing
-      }
     } // End is it a URL
     if (scheme == 'https') {
       isHttps.msg = 'Given GS1 Digital Link URI defines HTTPS as its scheme';
@@ -101,9 +88,41 @@ function testDL(dl) {
     }
   } // End is it a URI
 
-  // We can only go beyond this point if we have a valid DL URI, so we test for that
+  // if isHttps.status is pass or warn then we have a URL and we can probe further
+  if (isHttps.status !== 'fail') {
+    let plausibleDL = Object.create(resultProps);
+    plausibleDL.id = 'plausibleDL';
+    plausibleDL.test = 'Following GS1 Digital Link: URI syntax, we can check whether a URL plausibly is, or definitely is not, a DL URI';
+    plausibleDL.msg = 'Given URL does not conform to GS1 Digital Link URI syntax, no further tests are possible';
+    plausibleDL.status = 'fail';
+    if (plausibleDlURI.test(dl)) {
+      plausibleDL.status = 'pass';
+      plausibleDL.msg = 'URL under test plausibly is a GS1 Digital Link URI';
+      if (!plausibleDlURINoAlphas.test(dl)) {
+        plausibleDL.status = 'warn';
+        plausibleDL.msg = 'URL under test plausibly is a GS1 Digital Link URI BUT uses convenience alphas which are being deprecated in favour of all-numeric AIs';
+      }
+    }
+    recordResult(plausibleDL);
+  }
+  // So now if plausibleDL.status is pass or warn, then we can pass it to the toolkit for a full check
+  if (plausibleDL.status !== 'fail') {
+    try {
+	    let gs1Array = gs1dlt.extractFromGS1digitalLink(dl);
+      // You can get here with a variety of URLs including just a domain name and /gtin etc. So we need to check further
+      // Object returned has a GS1 object within it. Test for that using Mark's code
+      if (gs1dlt.buildStructuredArray(gs1Array.GS1).identifiers.length == 1) {
+        validDL.status = 'pass';
+        validDL.msg = 'Given input is a valid GS1 Digital Link URI';
+        recordResult(validDL);
+      }
+    } catch(err) {
+    	console.log('Error when extracting keys from given DL. Message is ' + err);
+    }
+  }
 
-  if (validDL.status == 'pass') {
+  // If validDL.status is pass, we're good to go.
+  if (validDL.status === 'pass') {
     // We'll call a series of functions rather than putting everything here
     // They return an object that normally goes into the asynch fetch array
 
@@ -115,10 +134,13 @@ function testDL(dl) {
     testList.push(errorCodeChecks(dl));
     testList.push(trailingSlashCheck(dl));
     testList.push(compressionChecks(dl, domain, gs1dlt));
-    testList.push(jsonTests(dl));
-    testList.push(jsonLdTests(dl));
     testList.push(testQuery(dl));
-
+    if (dlVersion === '1.1') {
+      testList.push(jsonTests(dl));
+      testList.push(jsonLdTests(dl));
+    } else {
+      testList.push(testLinkset(dl));
+    }
     // Now we run all the fetch-based tests one after the other. Promise-based means they don't all happen at once.
     testList.reduce(
       (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
@@ -131,7 +153,7 @@ function testDL(dl) {
 function TLSCheck(domain) {
   // This is designed to make sure that the server is available over TLS (i.e. using https works, even if the given DL is http)
   // It does not handle a JSON response and therefore we don't use the promises array
-console.log('Domain is '+ domain);
+  console.log('Domain is '+ domain);
   let tlsOK = Object.create(resultProps);
   tlsOK.id = 'tlsOK';
   tlsOK.test = 'SHALL support HTTP Over TLS (HTTPS)';
@@ -284,13 +306,8 @@ function headerBasedChecks(dl) {
         linkArray[i].test = 'SHALL redirect to the requested linkType if available';
         linkArray[i].url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u + '?linkType=' + linkArray[i].rel);
         if (linkArray[i].hreflang != '') {  // We have a specific language to deal with
-          linkArray[i].url += '&acceptLang=' + linkArray[i].hreflang;
+          linkArray[i].headers = {'Accept-language': linkArray[i].hreflang};
         }
-        // Really need to sort out why I can't pass a media type. I've spent hours trying to fix that bug.
-        // For now, we handle JSON, JSON-LD and... everything else.
-        // But at least language seems to work now 2020-01-13
-        // console.log('here with ' + linkArray[i].url);
-
         recordResult(linkArray[i]);
         linkArray[i].process = function(data) {
         // Strip the query strings before matching (should probably be more precise about this. Might be important info in target URL that we're missing)
@@ -486,7 +503,7 @@ function compressionChecks(dl, domain, gs1dlt) {
   return validDecompressCheck;
 }
 
-
+// Tests for linkType=all only apply to DL version 1.1
 function jsonTests(dl) {
   let varyAccept = Object.create(resultProps);
   varyAccept.id = 'varyAccept';
@@ -502,7 +519,8 @@ function jsonTests(dl) {
   listAsJSON.msg = 'List of links does not appear to be available as JSON';
   recordResult(listAsJSON);
 
-  varyAccept.url = perlTests + '?test=getAllHeaders&accept=json&testVal=' + encodeURIComponent(stripQuery(dl) + '?linkType=all');
+  varyAccept.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQuery(dl) + '?linkType=all');
+  varyAccept.headers ={'Accept': 'application/json'};
   varyAccept.process = function(data) {
     if (data.result.vary != null) {   // We have a vary header
       // might be an array or a single value
@@ -529,15 +547,9 @@ function jsonTests(dl) {
       recordResult(listAsJSON);
 
       // Media type says it's JSON, but is it? We need to test that directly
-      let newRequest = new Request(stripQuery(dl) + '?linkType=all', {
-        method:'get',
-        mode: 'cors',
-        redirect: 'follow',
-      	headers: new Headers({
-    	 	'Accept': 'application/json'
-        })
-      });
-      fetch(newRequest)
+      fetch(stripQuery(dl) + '?linkType=all', {
+      	headers: {'Accept': 'application/json'}
+      })
        .then(function(response) {
         return response.json();
       })
@@ -616,7 +628,7 @@ function rdFileCheck(domain) {
 }
 
 function testQuery(dl) {
-  qsPassedOn = Object.create(resultProps);
+  let qsPassedOn = Object.create(resultProps);
   qsPassedOn.id = 'qsPassedOn';
   qsPassedOn.test = 'By default, SHALL pass on all key=value pairs in the query string of the request URI (if present) when redirecting';
   qsPassedOn.msg = 'Query string not passed on. If the query string is deliberately suppressed for this Digital Link URI, test another one where the default behaviour of passing on the query string applies';
@@ -639,6 +651,275 @@ function testQuery(dl) {
   return qsPassedOn;
 }
      
+// Linkset introduced in version 1.2
+function testLinkset(dl) {
+  // We need to run several tests against the linkset. The first is the one we'll use to try and fetch the linkset
+  // If all the tests pass, we'll record the linkset in the thisLinkset global variable
+  validLinkset = true; // There are lots of paces where this can be set to false, this is the only 'true'assignment
+  let soleMember = Object.create(resultProps);
+  soleMember.id = 'soleMember';
+  soleMember.test = 'A set of links MUST be represented as a JSON object which MUST have "linkset" as its sole member.';
+  soleMember.msg = 'No linkset found or multiple members found';
+  soleMember.url = stripQuery(dl) + '?linkType=linkset';
+  soleMember.headers = {'Accept':'application/linkset+json'};
+  recordResult(soleMember);
+
+  let contextObjectArray = Object.create(resultProps);
+  contextObjectArray.id = 'contextObjectArray';
+  contextObjectArray.test = 'The "linkset" member is an array in which a distinct JSON object - the "link context object" - MUST be used to represent links that have the same link context.';
+  contextObjectArray.msg = 'No array found';
+  recordResult(contextObjectArray);
+
+  let contextObject = Object.create(resultProps);
+  contextObject.id = 'contextObject'
+  contextObject.test = 'Each link context object MUST have an "anchor" member with a value that represents the link context. The linkset standard allows a value of ""  for anchor but GS1 Digital Link requires an absolute  URI that follows the GS1 DL syntax (uncompressed)';
+  contextObject.msg = 'No anchor found';
+  recordResult(contextObject);
+
+  soleMember.process = function(data) {
+
+// *********************************
+//    data = dummy;
+// *********************************
+
+    if (typeof data.linkset === 'object') {soleMember.status = 'pass'}
+    for (let i in data) {
+      if (i !== 'linkset') {soleMember.status = 'fail'}
+    }
+    if (soleMember.status === 'pass') {
+      soleMember.msg = 'Linkset found as sole member';
+      recordResult(soleMember);
+      if ((typeof data.linkset === 'object') && (typeof data.linkset[0] === 'object')) {
+        contextObjectArray.status = 'pass';
+        contextObjectArray.msg = 'Array found';
+        recordResult(contextObjectArray);
+      }
+      if (typeof data.linkset[0].anchor === 'string') {
+        contextObject.msg = 'Value for anchor found but is not a GS1 Digital Link URI (uncompressed)';
+        if (plausibleDlURI.test(data.linkset[0].anchor)) {
+          contextObject.status = 'pass';
+          contextObject.msg = 'GS1 Digital Link URI (uncompressed) found as anchor';
+          if (!plausibleDlURINoAlphas.test(data.linkset[0].anchor)) {
+            contextObject.status = 'warn';
+            contextObject.msg = 'GS1 Digital Link URI (uncompressed) found as anchor BUT using convenience alphas which are being deprecated in favour of all-numeric AIs';
+          }
+        }
+        recordResult(contextObject);
+      }
+
+      if (contextObject.status === 'fail') {
+        validLinkset = false;
+      } else {
+        // This means we almost certainly have a linkset with a valid anchor
+        // Now we want to work through the linkset looking for link relation types
+        // Linkset says these can be registered IANA link relations or URIs.
+        // For this test, we'll ignore any link rel type that isn't a URI
+        // If it is a URI, pass if it's a GS1 link type, otherwise warn
+        // A URI MUST be followed by an array with one or more link target objects
+
+        // First we need to fetch the current set of GS1 link types from linkTypeListSource
+        let GS1LinkTypes = [];
+        fetch(linkTypeListSource, {
+          headers: {
+            'Accept': 'application/ld+json'
+          }
+        })
+        .then((response) => {
+        return response.json();
+        })
+        .then((lt) => {
+        for (const entry of lt['@graph']) {
+          if (entry['rdfs:subPropertyOf'] && entry['rdfs:subPropertyOf']['@id'] === 'gs1:linkType') {
+            const linkTypeName = entry['@id'].replace('gs1:', '');
+            GS1LinkTypes.push({
+              title: entry['rdfs:label']['@value'],
+              description: entry['rdfs:comment']['@value'],
+              curie: `gs1:${linkTypeName}`,
+              url: `https://gs1.org/voc/${linkTypeName}`,
+            });
+          }
+        }
+        })
+        .then((lt) => {
+          // Lots to do here but we need to do it after we've fetched the link types, hence putting it here after a .then
+          // Need a counter as we need unique IDs for the reporting objects
+          let count = 0;
+          let defaultLinkOK = false;
+          let defaultLinkObject = Object.create(resultProps);
+          defaultLinkObject.id = 'defaultLinkObject';
+          defaultLinkObject.test = 'SHALL recognise one available link as the default for any given request URI.';
+          defaultLinkObject.msg = 'No default link found';
+          recordResult(defaultLinkObject);
+
+          for (i in data.linkset[0]) {
+            count++;
+            if (RabinRegEx.test(i)) { // We're looking at a URI as a link rel type
+              let linkRelObject = Object.create(resultProps);
+              linkRelObject.id = 'linkRelObject' + count;
+              linkRelObject.test = 'If supporting multiple links per identified item, (resolvers) SHALL recognise the GS1 Web vocabulary namespace. A resolver MAY recognise additional namespaces (registered IANA link rel types are ignored in this test suite)';
+              linkRelObject.msg = 'Link relation type ' + i + ' is not recognised or proposed by GS1';
+              linkRelObject.status = 'warn';
+              recordResult(linkRelObject);
+              if (typeof GS1LinkTypes.find(x => x.url === i) === 'object') {
+                linkRelObject.msg = 'Link relation type ' + i + ' recognised or proposed by GS1';
+                linkRelObject.status = 'pass';
+                recordResult(linkRelObject);
+              }
+              if (linkRelObject.status === 'fail') {validLinkset = false}
+              if ((i === 'https://gs1.org/voc/defaultLink') && (defaultLinkOK === false)) { // So we haven't already got a default link.
+                defaultLinkOK = true;
+                defaultLinkObject.status = 'pass';
+                defaultLinkObject.msg = 'Default link found';
+                recordResult(defaultLinkObject);
+              } else if ((i === 'https://gs1.org/voc/defaultLink') && (defaultLinkOK)) {
+                defaultLinkObject.status = 'fail';
+                defaultLinkObject.msg = 'Duplicate default link found (perhaps you meant to use defaultLink*?)';
+                recordResult(defaultLinkObject);
+                validLinkset = false;
+              }
+
+              let arrayOfTargetObjects = Object.create(resultProps);
+              arrayOfTargetObjects.id = 'arrayOfTargetObjects' + count;
+              arrayOfTargetObjects.test = 'Linkset requires there be an array of link target objects for every link relation, even if there is only one link target object.';
+              arrayOfTargetObjects.msg = 'No array, or invalid array of link target objects found for ' + i;
+              if (typeof data.linkset[0][i] === 'object') {
+                if (checkTargetObjects(i, data.linkset[0][i])) {
+                  arrayOfTargetObjects.status = 'pass';
+                  arrayOfTargetObjects.msg = 'Array of target objects found for ' + i;
+                } else {
+                  validLinkset = false;
+                }
+              }
+              recordResult(arrayOfTargetObjects);
+            }
+          }
+          if (validLinkset) {testLinksInLinkset(dl, data.linkset[0])}
+        })
+        .catch(function(error) {
+        console.log('There has been a problem with your fetch operation: ', error.message);
+        });
+      }
+    } // End if soleMember.status === 'pass', i.e. we probably have some sort of linkset
+  }
+  return soleMember;
+}
+
+function checkTargetObjects(lt, a) {
+  let counter = 0;
+  returnValue = true;
+  for (let target in a) {
+    counter++;
+    let targetObj = Object.create(resultProps);
+    targetObj.id = 'targetObj' + lt + counter;
+    targetObj.test = 'All links exposed SHALL include the target URL, the link relationship type (the link type) and a human-readable title';
+    targetObj.msg = 'Target link minimum requirements not met';
+    // We know we have a link rel type or we wouldn't be here. So we just need to check the other two
+    if ((typeof a[target].href === 'string') && (RabinRegEx.test(a[target].href))) {  // we have a target URL. Now to check the title - which can be complex
+      if (((typeof a[target].title === 'string') && (a[target].title !== "")) || (((typeof a[target]["title*"] === 'object') && (typeof a[target]["title*"][0].value === 'string')) && (a[target]["title*"] !== ""))) {
+        targetObj.status = 'pass';
+        targetObj.msg = 'Target link minimum requirements met';
+      }
+    }
+    recordResult(targetObj);
+    if (targetObj.status !== 'pass') {returnValue = false}
+  }
+  return returnValue;
+}
+
+
+function testLinksInLinkset(dl, ls) {
+  // This function is called if we're confident that we have a linkset. The linkset itself arrives as ls.
+  // We're going to set up an array of tests and reduce that promise array separately for each link
+  let linkArray =[];
+
+  // Start by checking the default response
+  let defaultResponseCheck = Object.create(resultProps);
+  defaultResponseCheck.id = 'defaultResponseCheck';
+  defaultResponseCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+  let u = stripQuery(dl);
+  defaultResponseCheck.msg = 'Request to ' + u + ' without any extra information did not redirect to default link';
+  defaultResponseCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+  recordResult(defaultResponseCheck);
+  defaultResponseCheck.process = function(data) {
+    if (data.result.location === ls["https://gs1.org/voc/defaultLink"][0].href) { // There is a redirection to the default link
+      defaultResponseCheck.status = 'pass';
+      defaultResponseCheck.msg = 'Redirection to default link of ' + ls["https://gs1.org/voc/defaultLink"][0].href + ' confirmed';
+    } else {
+      defaultResponseCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink"][0].href;
+    }
+    recordResult(defaultResponseCheck);
+  }
+  linkArray.push(defaultResponseCheck);
+
+  // Now we need to check any default* links - which is more complicated.
+
+  if (typeof ls["https://gs1.org/voc/defaultLink*"] === 'object') {  // So we have one or more defaultLink* entries
+    for (let i in ls["https://gs1.org/voc/defaultLink*"]) {
+      // Resolvers MAY use any HTTP request header to differentiate defaultLink* entries
+      // However, only Accept-Language and Accept are part of the spec so that's all we're going to test for.
+      // We'll test them independently as the spec does not define how to prioritize the two.
+      if (typeof ls["https://gs1.org/voc/defaultLink*"][i].hreflang[0] === 'string') {
+        let langArray = ls["https://gs1.org/voc/defaultLink*"][i].hreflang; // Just for convenience
+        for (let lang in langArray) {
+          let defLinkStarCheck = Object.create(resultProps);
+          defLinkStarCheck.id = 'defLinkStarCheck' + i + langArray[lang];
+          defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+          let u = stripQuery(dl);
+          defLinkStarCheck.msg = 'Request to ' + u + ' with Accept-Language header set to ' + langArray[lang] + ' did not redirect to the correct link';
+          defLinkStarCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+          defLinkStarCheck.headers = {'Accept-language': langArray[lang]};
+          recordResult(defLinkStarCheck);
+          defLinkStarCheck.process = function(data) {
+            if (data.result.location === ls["https://gs1.org/voc/defaultLink*"][i].href) { // There is a redirection to the correct link
+              defLinkStarCheck.status = 'pass';
+              defLinkStarCheck.msg = 'Redirection to default* link of ' + ls["https://gs1.org/voc/defaultLink*"][i].href + ' confirmed for language ' + langArray[lang];
+            } else {
+              defLinkStarCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink*"][i].href;
+            }
+            recordResult(defLinkStarCheck);
+          }
+          linkArray.push(defLinkStarCheck);
+        }
+      }
+      if (typeof ls["https://gs1.org/voc/defaultLink*"][i].type === 'string') {
+        let type = ls["https://gs1.org/voc/defaultLink*"][i].type.substring(ls["https://gs1.org/voc/defaultLink*"][i].type.indexOf('/')+1);
+        // Will need to do more here to handle types with + character
+        let defLinkStarCheck = Object.create(resultProps);
+        defLinkStarCheck.id = 'defLinkStarCheck' + i + type;
+        defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+        let u = stripQuery(dl);
+        defLinkStarCheck.msg = 'Request to ' + u + ' with Accept header set to ' + ls["https://gs1.org/voc/defaultLink*"][i].type + ' did not redirect to the correct link';
+        defLinkStarCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+        defLinkStarCheck.headers = {'Accept': type}
+        // console.log(defLinkStarCheck.url);
+        recordResult(defLinkStarCheck);
+        defLinkStarCheck.process = function(data) {
+          if (data.result.location === ls["https://gs1.org/voc/defaultLink*"][i].type) { // There is a redirection to the correct link
+            defLinkStarCheck.status = 'pass';
+            defLinkStarCheck.msg = 'Redirection to default* link of ' + ls["https://gs1.org/voc/defaultLink*"][i].href + ' confirmed for type ' + type;
+          } else {
+            defLinkStarCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink*"][i].href;
+          }
+          recordResult(defLinkStarCheck);
+        }
+        linkArray.push(defLinkStarCheck);
+      }
+
+
+    }
+  }
+
+  // WIP - need to add in checking all the other links 2020-11-30
+
+
+
+  linkArray.reduce(
+    (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
+    Promise.resolve()
+  );
+
+
+}
 
 
 
@@ -681,7 +962,9 @@ function numericOnly(dl) {    // Bound to be a better way of doing this but this
 // This is the function called by 'reducing' the list of tests 
 function runTest(test) {  
   return new Promise((resolve, reject) => {
-  fetch(test.url)
+  fetch(test.url, {
+    headers: test.headers
+  })
   .then(response => response.json())
   .then(data => {
     test.process(data);
@@ -694,6 +977,7 @@ function runTest(test) {
   });
   });
 }
+
 
 // ************************** Output functions *****************************
 
@@ -770,4 +1054,73 @@ function sendOutput(o) {
     sq.title = o.test;
     grid.appendChild(sq);
   }
+}
+
+
+let dummy = {
+  "linkset": [
+    {
+      "anchor": "https://example.com/01/614141123452",
+      "itemDescription": "Example product",
+      "https://gs1.org/voc/defaultLink": [
+        {
+          "href": "https://dalgiardino.com/risotto-rice-with-mushrooms/",
+          "title": "foo"
+        }
+      ],
+      "https://gs1.org/voc/defaultLink*": [
+        {
+          "href": "https://dalgiardino.com/risotto-rice-with-mushrooms/index.html.vi",
+          "hreflang": ["vi"],
+          "type": "text/html",
+    		  "title": "Product information"
+        },
+        {
+          "href": "https://example.com/fr/defaultPage",
+          "hreflang": ["fr"],
+          "type": "application/json",
+    		  "title": "Information produit"
+        }
+      ],
+      "https://gs1.org/voc/pip": [
+        {
+          "href": "https://example.com/en/defaultPage",
+          "hreflang": ["en"],
+    		  "title": "Product information"
+        },
+        {
+          "href": "https://example.com/fr/defaultPage",
+          "hreflang": ["fr"],
+    		  "title": "Information produit"
+        }
+      ],
+      "https://gs1.org/voc/whatsInTheBox": [
+        {
+          "href": "https://example.com/en/packContents/GB",
+          "hreflang": ["en"],
+          "title": "What's in the box?",
+          "context": "GB"
+        },
+        {
+          "href": "https://example.com/fr/packContents/FR",
+          "hreflang": ["fr"],
+          "title": "Qu'y a-t-il dans la boite?",
+          "context": "FR"
+        },
+        {
+          "href": "https://example.com/fr/packContents/CH",
+          "hreflang": ["fr"],
+          "title": "Qu'y a-t-il dans la boite?",
+          "context": "CH"
+        }
+      ],
+      "https://gs1.org/voc/relatedVideo": [
+        {
+          "href": "https://video.example",
+          "hreflang": ["en", "fr"],
+          "title*": [ { "value": "See it in action!" , "language" : "en" }, { "value": "Voyez-le en action!" , "language" : "fr" } ]
+        }
+      ]
+    }
+  ]
 }
