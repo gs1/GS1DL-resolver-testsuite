@@ -44,6 +44,7 @@ let gs1dlt = new GS1DigitalLinkToolkit();
 // ***************************************************************************
 
 function testDL(dl, dlVersion) {
+  clearGrid();
   // First we want to test whether the given input is a URL or not.
   // Set up the a results object for testing whether what we have is a URL or not
   let isURL = Object.create(resultProps);
@@ -140,6 +141,7 @@ function testDL(dl, dlVersion) {
       testList.push(jsonLdTests(dl));
     } else {
       testList.push(testLinkset(dl));
+      testList.push(testJldContext(dl));
     }
     // Now we run all the fetch-based tests one after the other. Promise-based means they don't all happen at once.
     testList.reduce(
@@ -660,7 +662,7 @@ function testLinkset(dl) {
   soleMember.id = 'soleMember';
   soleMember.test = 'A set of links MUST be represented as a JSON object which MUST have "linkset" as its sole member.';
   soleMember.msg = 'No linkset found or multiple members found';
-  soleMember.url = stripQuery(dl) + '?linkType=linkset';
+  soleMember.url = stripQuery(dl) + '?linkType=all';
   soleMember.headers = {'Accept':'application/linkset+json'};
   recordResult(soleMember);
 
@@ -921,8 +923,25 @@ function testLinksInLinkset(dl, ls) {
 
 }
 
-
-
+function testJldContext(dl) {
+  let jldContext = Object.create(resultProps);
+  let regex = /rel=*http:\/\/www.w3.org\/ns\/json-ld#context/;
+  jldContext.id = 'jldContext';
+  jldContext.test = 'SHALL respond to a query parameter of linkType set to all by returning a list of links available to the client application. The list SHALL be available as per Linkset: Media Types and a Link Relation Type for Link Sets.';
+  jldContext.msg = 'No HTTP Link Header detected pointing to JSON-LD Context';
+  jldContext.status = 'warn';
+  jldContext.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQuery(dl) + '?linkType=all');
+  jldContext.headers = {'Accept':'application/linkset+json'};
+  recordResult(jldContext);
+  jldContext.process = function(data) {
+    if ((data.result.link != null) && (regex.test(data.result.link)))   {
+      jldContext.status = 'pass';
+      jldContext.msg = 'HTTP Link Header detected pointing to JSON-LD Context';
+      recordResult(jldContext);
+    }
+  }
+  return jldContext;
+}
 
 
 // ********************* Processing functions ******************************
@@ -990,6 +1009,18 @@ function getDL() {
     document.getElementById(outputElement).appendChild(dl);
   }
   return dl;
+}
+
+
+function clearGrid() {
+  let e;
+  if (e = document.getElementById('resultsGrid')) {
+    e.innerHTML = '';
+  }
+  if (e = document.getElementById('testResults')) {
+    e.innerHTML = '';
+  }
+  return true;
 }
 
 function getGrid() {
