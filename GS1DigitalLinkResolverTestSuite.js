@@ -674,14 +674,14 @@ function testLinkset(dl) {
 
   let contextObject = Object.create(resultProps);
   contextObject.id = 'contextObject'
-  contextObject.test = 'Each link context object MUST have an "anchor" member with a value that represents the link context. The linkset standard allows a value of ""  for anchor but GS1 Digital Link requires an absolute  URI that follows the GS1 DL syntax (uncompressed)';
+  contextObject.test = 'Each link context object MUST have an "anchor" member with a value that represents the link context. The linkset standard allows a value of ""  for anchor but GS1 Digital Link requires an absolute URI that follows the GS1 DL syntax (uncompressed)';
   contextObject.msg = 'No anchor found';
   recordResult(contextObject);
 
   soleMember.process = function(data) {
 
 // *********************************
-//    data = dummy;
+//   data = dummy;
 // *********************************
 
     if (typeof data.linkset === 'object') {soleMember.status = 'pass'}
@@ -767,13 +767,13 @@ function testLinkset(dl) {
                 linkRelObject.status = 'pass';
                 recordResult(linkRelObject);
               }
-              if (linkRelObject.status === 'fail') {validLinkset = false}
               if ((i === 'https://gs1.org/voc/defaultLink') && (defaultLinkOK === false)) { // So we haven't already got a default link.
-                defaultLinkOK = true;
+                defaultLinkOK = true; // We have found our default link
                 defaultLinkObject.status = 'pass';
                 defaultLinkObject.msg = 'Default link found';
                 recordResult(defaultLinkObject);
               } else if ((i === 'https://gs1.org/voc/defaultLink') && (defaultLinkOK)) {
+                // Multiple default links found, which is an error
                 defaultLinkObject.status = 'fail';
                 defaultLinkObject.msg = 'Duplicate default link found (perhaps you meant to use defaultLink*?)';
                 recordResult(defaultLinkObject);
@@ -795,6 +795,7 @@ function testLinkset(dl) {
               recordResult(arrayOfTargetObjects);
             }
           }
+          if (defaultLinkOK === false) {validLinkset = false}
           if (validLinkset) {testLinksInLinkset(dl, data.linkset[0])}
         })
         .catch(function(error) {
@@ -809,6 +810,10 @@ function testLinkset(dl) {
 function checkTargetObjects(lt, a) {
   let counter = 0;
   returnValue = true;
+  let langRegEx = /^[a-z]{2}($|-[A-Z]{2})/;   // We'll assume that if a language tag matches this, it's a valid value.
+                                              // We won't fetch the list of valid values and check against that.
+  let typeRegEx = /^[a-z]{4,}\//;             // Again, not checking against IANA list but must begin with at least 4 lower case
+                                              // letters followed by a slash
   for (let target in a) {
     counter++;
     let targetObj = Object.create(resultProps);
@@ -816,10 +821,48 @@ function checkTargetObjects(lt, a) {
     targetObj.test = 'All links exposed SHALL include the target URL, the link relationship type (the link type) and a human-readable title';
     targetObj.msg = 'Target link minimum requirements not met';
     // We know we have a link rel type or we wouldn't be here. So we just need to check the other two
-    if ((typeof a[target].href === 'string') && (RabinRegEx.test(a[target].href))) {  // we have a target URL. Now to check the title - which can be complex
-      if (((typeof a[target].title === 'string') && (a[target].title !== "")) || (((typeof a[target]["title*"] === 'object') && (typeof a[target]["title*"][0].value === 'string')) && (a[target]["title*"] !== ""))) {
+    if ((typeof a[target].href === 'string') && (RabinRegEx.test(a[target].href))) {  // we have a target URL. Now to check the title - which can come one of two ways
+      let myTitle = '';
+      if ((typeof a[target].title === 'string') && (a[target].title !== "")) {
+        myTitle = a[target].title;
+      } else if (((typeof a[target]["title*"] === 'object') && (typeof a[target]["title*"][0].value === 'string')) && (a[target]["title*"] !== "")) {
+        myTitle = a[target]["title*"];
+      }
+      // other attributes are optional, but if present, they need to conform to certain rules.
+      // Start with hreflang which takes an array of language codes
+      if (a[target].hreflang !== undefined) { // We have something for the hreflang which must be an array of valid language tags
+        if ((typeof a[target].hreflang === 'object') && (typeof a[target].hreflang[0] === 'string'))  {
+          targetObj.msg = 'Array of language tags found.';
+          for (let lang in a[target].hreflang) {
+            if (!langRegEx.test(a[target].hreflang[lang])) {
+              returnValue = false;
+              targetObj.msg += ' ' + a[target].hreflang[lang] + ' is not a valid language tag';
+            }
+          }
+        } else {
+          targetObj.msg = 'Value of hreflang for ' + a[target].href + ' is present but is not an array';
+          returnValue = false;
+        }
+      }
+      if (a[target].type !== undefined) { // We have something for the type
+        if (!typeRegEx.test(a[target].type)) {
+          returnValue = false;
+          targetObj.msg += ' Media type ' + a[target].type + ' is not valid';
+        }
+      }
+      if ((returnValue) && (myTitle !== '')) {
         targetObj.status = 'pass';
-        targetObj.msg = 'Target link minimum requirements met';
+        // Worth creating a friendly message here so that links can be distinguished
+        targetObj.msg = 'Target link minimum requirements met for ' + a[target].href + ' (' + lt.replace('https://gs1.org/voc/', 'gs1:') + ', ' + myTitle;
+        if (a[target].hreflang !== undefined) {
+          for (let lang in a[target].hreflang) {
+            targetObj.msg += ', ' + a[target].hreflang[lang];
+          }
+        }
+        if (a[target].type !== undefined) {
+          targetObj.msg += ', ' + a[target].type;
+        }
+        targetObj.msg += ')';
       }
     }
     recordResult(targetObj);
@@ -843,6 +886,7 @@ function testLinksInLinkset(dl, ls) {
   defaultResponseCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
   recordResult(defaultResponseCheck);
   defaultResponseCheck.process = function(data) {
+    // There can only be one href for the defaultLink, so we can hard-code the [0] value.
     if (data.result.location === ls["https://gs1.org/voc/defaultLink"][0].href) { // There is a redirection to the default link
       defaultResponseCheck.status = 'pass';
       defaultResponseCheck.msg = 'Redirection to default link of ' + ls["https://gs1.org/voc/defaultLink"][0].href + ' confirmed';
@@ -856,7 +900,7 @@ function testLinksInLinkset(dl, ls) {
   // Now we need to check any default* links - which is more complicated.
 
   if (typeof ls["https://gs1.org/voc/defaultLink*"] === 'object') {  // So we have one or more defaultLink* entries
-    for (let i in ls["https://gs1.org/voc/defaultLink*"]) {
+    for (let i in ls["https://gs1.org/voc/defaultLink*"]) { // Loop through links for the defaultLink* link type
       // Resolvers MAY use any HTTP request header to differentiate defaultLink* entries
       // However, only Accept-Language and Accept are part of the spec so that's all we're going to test for.
       // We'll test them independently as the spec does not define how to prioritize the two.
@@ -883,22 +927,22 @@ function testLinksInLinkset(dl, ls) {
           linkArray.push(defLinkStarCheck);
         }
       }
-      if (typeof ls["https://gs1.org/voc/defaultLink*"][i].type === 'string') {
+      if ((typeof ls["https://gs1.org/voc/defaultLink*"][i].type === 'string') && (ls["https://gs1.org/voc/defaultLink*"][i].type !== '')) {
+        // So we have a value of type to use
         let type = ls["https://gs1.org/voc/defaultLink*"][i].type.substring(ls["https://gs1.org/voc/defaultLink*"][i].type.indexOf('/')+1);
-        // Will need to do more here to handle types with + character
         let defLinkStarCheck = Object.create(resultProps);
         defLinkStarCheck.id = 'defLinkStarCheck' + i + type;
         defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
         let u = stripQuery(dl);
         defLinkStarCheck.msg = 'Request to ' + u + ' with Accept header set to ' + ls["https://gs1.org/voc/defaultLink*"][i].type + ' did not redirect to the correct link';
         defLinkStarCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
-        defLinkStarCheck.headers = {'Accept': type}
+        defLinkStarCheck.headers = {'Accept': ls["https://gs1.org/voc/defaultLink*"][i].type}
         // console.log(defLinkStarCheck.url);
         recordResult(defLinkStarCheck);
         defLinkStarCheck.process = function(data) {
           if (data.result.location === ls["https://gs1.org/voc/defaultLink*"][i].type) { // There is a redirection to the correct link
             defLinkStarCheck.status = 'pass';
-            defLinkStarCheck.msg = 'Redirection to default* link of ' + ls["https://gs1.org/voc/defaultLink*"][i].href + ' confirmed for type ' + type;
+            defLinkStarCheck.msg = 'Redirection to default* link of ' + ls["https://gs1.org/voc/defaultLink*"][i].href + ' confirmed for type ' + ls["https://gs1.org/voc/defaultLink*"][i].type;
           } else {
             defLinkStarCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink*"][i].href;
           }
@@ -906,22 +950,84 @@ function testLinksInLinkset(dl, ls) {
         }
         linkArray.push(defLinkStarCheck);
       }
-
-
     }
   }
 
-  // WIP - need to add in checking all the other links 2020-11-30
-
-
-
+  // Having dealt with the special case of the defaultLink and defaultLink*, we can now work through all the other link types.
+  for (let r in ls) {
+    // r is a top level element in the context object. This might be things like 'itemDescription' and anchor.
+    // We are only interested where r is a URL and is not one of the default links already processed
+    if ((RabinRegEx.test(r)) && ((r !== 'https://gs1.org/voc/defaultLink') && (r !== 'https://gs1.org/voc/defaultLink*'))) {
+      let linkType = r.replace('https://gs1.org/voc/', 'gs1:');
+      //console.log('We have a link type of ' + r);
+      // Confident that r is a link type and that we should now be able to construct queries that should redirect accordingly.
+      let linkCount = 0;
+      for (let t in ls[r]) {    // ls.r is an array of target objects.
+        let targetObject = ls[r][t];  // Just easier to work with, this is a target Object for the linkType
+        let u = stripQuery(dl) + '?linkType=' + linkType;
+        let loCheck = Object.create(resultProps);
+        loCheck.id = linkType + linkCount++;
+        loCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+        if ((typeof targetObject.context === 'string') && (targetObject.context !== '')) { // So we have a context as well as a link type
+          u += '&context=' + targetObject.context;
+        }
+        loCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+        if ((typeof targetObject.type === 'string') && (targetObject.type !== '')) {
+          loCheck.headers.Accept = targetObject.type;
+        } else {
+          loCheck.headers.Accept = '*/*';    // try as I might I cannot persuade JS not to need this in this loop
+        }
+        loCheck.process = function(data) {
+          if (data.result.location === targetObject.href) { // There is a redirection to the correct link
+            loCheck.status = 'pass';
+            loCheck.msg.replace('failed to redirect to ','redirected to ');
+            recordResult(loCheck);
+          }
+        }
+        // So far we haven't take account of language, which we need to do.
+        // There might be multiple languages (even a single one will be in an array)
+        if ((typeof targetObject.hreflang[0] === 'string') && (targetObject.hreflang[0] !== '')) {  // We have at least one language
+          loCheck.headers['Accept-language'] = targetObject.hreflang[0];
+console.log('Setting language here to ' + targetObject.hreflang[0] + ' for ' + loCheck.id);
+        } else {
+          loCheck.headers['Accept-language'] = 'en'; // Default language. Would love not to have to do this.
+        }
+        loCheck.msg = describeRequest(dl, linkType, targetObject, loCheck);
+        recordResult(loCheck);
+        linkArray.push(loCheck);
+        // If there are more languages, we can clone the loCheck object and just change a few things before pushing it to the linkArray
+        let langNo = 1;
+        while ((typeof targetObject.hreflang[langNo] === 'string') && (targetObject.hreflang[langNo] !== '')) {
+          let clone = loCheck;
+          clone.id += targetObject.hreflang[langNo];
+          clone.headers['Accept-language'] = targetObject.hreflang[langNo];
+          clone.msg = describeRequest(dl, linkType, targetObject, clone);
+          recordResult(clone);
+          linkArray.push(clone);
+          langNo++;
+          console.log('Accept header is ' + clone.headers.Accept + ' and accept-language is ' + clone.headers['Accept-language'] + ' for ' + clone.id);
+        }
+      }
+    }
+  }
+  // OK, run the tests!
   linkArray.reduce(
     (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
     Promise.resolve()
   );
-
-
 }
+
+function describeRequest(dl, linkType, targetObject, testObject) {
+  let msg = 'Request for ' + stripQuery(dl) + '?linkType=' + linkType + ' failed to redirect to expected target URL:' + targetObject.href;
+  msg += ' Additional request parameters used: ';
+  if ((typeof targetObject.context === 'string') && (targetObject.context !== '')) {
+    msg += 'context: ' + targetObject.context + '; ';
+  }
+  msg += 'Accept-language: ' + testObject.headers['Accept-language'] + '; ';
+  msg += 'Accept: ' + testObject.headers.Accept + '.';
+  return msg;
+}
+
 
 function testJldContext(dl) {
   let jldContext = Object.create(resultProps);
@@ -1117,6 +1223,7 @@ let dummy = {
         {
           "href": "https://example.com/en/defaultPage",
           "hreflang": ["en"],
+          "type": "text/html",
     		  "title": "Product information"
         },
         {
