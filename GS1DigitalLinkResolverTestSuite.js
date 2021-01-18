@@ -830,8 +830,8 @@ function checkTargetObjects(lt, a) {
       }
       // other attributes are optional, but if present, they need to conform to certain rules.
       // Start with hreflang which takes an array of language codes
-      if (a[target].hreflang !== undefined) { // We have something for the hreflang which must be an array of valid language tags
-        if ((typeof a[target].hreflang === 'object') && (typeof a[target].hreflang[0] === 'string'))  {
+      if (typeof a[target].hreflang === 'object') { // We have something for the hreflang which must be an array of valid language tags
+        if (typeof a[target].hreflang[0] === 'string')  {
           targetObj.msg = 'Array of language tags found.';
           for (let lang in a[target].hreflang) {
             if (!langRegEx.test(a[target].hreflang[lang])) {
@@ -844,6 +844,7 @@ function checkTargetObjects(lt, a) {
           returnValue = false;
         }
       }
+
       if (a[target].type !== undefined) { // We have something for the type
         if (!typeRegEx.test(a[target].type)) {
           returnValue = false;
@@ -954,6 +955,7 @@ function testLinksInLinkset(dl, ls) {
   }
 
   // Having dealt with the special case of the defaultLink and defaultLink*, we can now work through all the other link types.
+
   for (let r in ls) {
     // r is a top level element in the context object. This might be things like 'itemDescription' and anchor.
     // We are only interested where r is a URL and is not one of the default links already processed
@@ -962,42 +964,54 @@ function testLinksInLinkset(dl, ls) {
       //console.log('We have a link type of ' + r);
       // Confident that r is a link type and that we should now be able to construct queries that should redirect accordingly.
       let linkCount = 0;
-      for (let t in ls[r]) {    // ls.r is an array of target objects.
-        let targetObject = ls[r][t];  // Just easier to work with, this is a target Object for the linkType
-        let u = stripQuery(dl) + '?linkType=' + linkType;
-        let loCheck = Object.create(resultProps);
+      for (let t in ls[r]) {    // ls.r is an array of target objects for the given link type
+
+(function() {
+        let targetObject = ls[r][t];  // Just easier to work with, this is a single target Object for the current link type
+        let u = stripQuery(dl) + '?linkType=' + linkType; // Creates basic request URI for that link type
+        let loCheck = Object.create(resultProps); // (our result props object is called link object check)
         loCheck.id = linkType + linkCount++;
         loCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
-        if ((typeof targetObject.context === 'string') && (targetObject.context !== '')) { // So we have a context as well as a link type
+        if ((typeof targetObject.context === 'string') && (targetObject.context !== '')) { // So we have a GS1 context variable as well as a link type
           u += '&context=' + targetObject.context;
         }
-        loCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+        loCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u); // This is the complete test URL to send to the helper application
+        // Now we need to construct the HTTP request. Does this target object specify a media type? If so, we'll be explicit in what we want
         if ((typeof targetObject.type === 'string') && (targetObject.type !== '')) {
           loCheck.headers.Accept = targetObject.type;
         } else {
           loCheck.headers.Accept = '*/*';    // try as I might I cannot persuade JS not to need this in this loop
         }
+        // So far we haven't take account of language, which we need to do.
+        // There might be multiple languages (even a single one will be in an array)
+
+        if ((typeof targetObject.hreflang === 'object')  &&  ((typeof targetObject.hreflang[0] === 'string') && (targetObject.hreflang[0] !== ''))) {  // We have at least one language
+          loCheck.headers['Accept-language'] = targetObject.hreflang[0];
+          console.log('Setting language here to ' + targetObject.hreflang[0] + ' for ' + loCheck.id);
+        } else {
+          // console.log('NOT setting language here to for ' + loCheck.id);
+          loCheck.headers['Accept-language'] = 'en'; // Default language. Would love not to have to do this.
+        }
+
+        loCheck.msg = describeRequest(dl, linkType, targetObject, loCheck);
+        loCheck.href = targetObject.href; // This is the URL we should be directed to. We pass it to the process function within loCheck
+        recordResult(loCheck);
+
         loCheck.process = function(data) {
-          if (data.result.location === targetObject.href) { // There is a redirection to the correct link
+          // console.log('We want to match location header ' + stripQuery(data.result.location) + ' with linkset href of ' + stripQuery(targetObject.href));
+          if (stripQuery(data.result.location) === stripQuery(loCheck.href)) { // There is a redirection to the correct link
             loCheck.status = 'pass';
             loCheck.msg.replace('failed to redirect to ','redirected to ');
             recordResult(loCheck);
           }
         }
-        // So far we haven't take account of language, which we need to do.
-        // There might be multiple languages (even a single one will be in an array)
-        if ((typeof targetObject.hreflang[0] === 'string') && (targetObject.hreflang[0] !== '')) {  // We have at least one language
-          loCheck.headers['Accept-language'] = targetObject.hreflang[0];
-console.log('Setting language here to ' + targetObject.hreflang[0] + ' for ' + loCheck.id);
-        } else {
-          loCheck.headers['Accept-language'] = 'en'; // Default language. Would love not to have to do this.
-        }
-        loCheck.msg = describeRequest(dl, linkType, targetObject, loCheck);
-        recordResult(loCheck);
+
         linkArray.push(loCheck);
+        console.log(loCheck);
+
         // If there are more languages, we can clone the loCheck object and just change a few things before pushing it to the linkArray
         let langNo = 1;
-        while ((typeof targetObject.hreflang[langNo] === 'string') && (targetObject.hreflang[langNo] !== '')) {
+        while ((typeof targetObject.hreflang === 'object') && ((typeof targetObject.hreflang[langNo] === 'string') && (targetObject.hreflang[langNo] !== ''))) {
           let clone = loCheck;
           clone.id += targetObject.hreflang[langNo];
           clone.headers['Accept-language'] = targetObject.hreflang[langNo];
@@ -1005,11 +1019,17 @@ console.log('Setting language here to ' + targetObject.hreflang[0] + ' for ' + l
           recordResult(clone);
           linkArray.push(clone);
           langNo++;
-          console.log('Accept header is ' + clone.headers.Accept + ' and accept-language is ' + clone.headers['Accept-language'] + ' for ' + clone.id);
         }
+})();
       }
     }
   }
+
+//  for (s in linkArray) {
+//      console.log(linkArray[s]);
+//  }
+
+
   // OK, run the tests!
   linkArray.reduce(
     (chain, d) => chain.then(() => runTest(d)).catch((error) => console.log('There has been a problem with your fetch operation for: ', error.message)),
@@ -1023,8 +1043,14 @@ function describeRequest(dl, linkType, targetObject, testObject) {
   if ((typeof targetObject.context === 'string') && (targetObject.context !== '')) {
     msg += 'context: ' + targetObject.context + '; ';
   }
-  msg += 'Accept-language: ' + testObject.headers['Accept-language'] + '; ';
-  msg += 'Accept: ' + testObject.headers.Accept + '.';
+  if (typeof testObject.headers['Accept-language'] === 'string') {
+    msg += 'Accept-language: ' + testObject.headers['Accept-language'] + '; ';
+  }
+  if (typeof testObject.headers.Accept === 'string') {
+    msg += 'Accept: ' + testObject.headers.Accept + '.';
+  }
+
+  msg += ' Request url is ' + testObject.url;
   return msg;
 }
 
@@ -1086,6 +1112,9 @@ function numericOnly(dl) {    // Bound to be a better way of doing this but this
 
 // This is the function called by 'reducing' the list of tests 
 function runTest(test) {  
+
+// console.log('Fetching ' + test.url + ' for ' + test.id + ' with language at ' + test.headers['Accept-language']);
+
   return new Promise((resolve, reject) => {
   fetch(test.url, {
     headers: test.headers
