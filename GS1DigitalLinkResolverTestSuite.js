@@ -1081,9 +1081,18 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
             // ls.r is an array of target objects for the given link type
             for (let targetObject of ls[r])
             {
+                linkCount += 1;
                 let u = stripQuery(dl) + '?linkType=' + linkType; // Creates basic request URI for that link type
-                let loCheck = Object.create(resultProps); // (our result props object is called link object check)
-                loCheck.id = linkType + linkCount++;
+                let loCheck = {
+                    "id": "", //An id for the test
+                    "test": "", // conformance statement from spec
+                    "status": "fail", // (pass|fail|warn), default is fail
+                    "msg": "", // Displayed to the end user
+                    "url": "", // The URL we're going to fetch
+                    "headers": {}  // Ready for any headers we want to set
+                }
+
+
                 loCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
                 if ((typeof targetObject.context === 'string') && (targetObject.context !== ''))
                 {
@@ -1109,10 +1118,10 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
                 // So far we haven't take account of language, which we need to do.
                 // There might be multiple languages (even a single one will be in an array)
 
-                if ((typeof targetObject.hreflang === 'object') && ((typeof targetObject.hreflang[0] === 'string') && (targetObject.hreflang[0] !== '')))
-                {  // We have at least one language
+                if (Array.isArray(targetObject.hreflang) && typeof targetObject.hreflang[0] === 'string' && (targetObject.hreflang[0] !== ''))
+                {
+                    // We have at least one language
                     loCheck.headers['Accept-language'] = targetObject.hreflang[0];
-                    console.log('Setting language here to ' + targetObject.hreflang[0] + ' for ' + loCheck.id);
                 }
                 else
                 {
@@ -1120,10 +1129,12 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
                     loCheck.headers['Accept-language'] = 'en'; // Default language. Would love not to have to do
                                                                // this.
                 }
+                loCheck.id = `LOTEST_${linkType}_${linkCount}_${loCheck.headers['Accept-language']}_${loCheck.headers.Accept}`;
 
                 loCheck.msg = describeRequest(dl, linkType, targetObject, loCheck);
                 loCheck.href = targetObject.href; // This is the URL we should be directed to. We pass it to the
                                                   // process function within loCheck
+
                 recordResult(loCheck);
 
                 loCheck.process = async (data) =>
@@ -1139,13 +1150,14 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
                 }
 
                 linkArray.push(loCheck);
-                //console.log(loCheck);
 
                 // If there are more languages, we can clone the loCheck object and just change a few things before
                 // pushing it to the linkArray
+
                 let langNo = 1;
-                while ((typeof targetObject.hreflang === 'object') && ((typeof targetObject.hreflang[langNo] === 'string') && (targetObject.hreflang[langNo] !== '')))
+                while (Array.isArray(targetObject.hreflang) && (typeof targetObject.hreflang[langNo] === 'string' && targetObject.hreflang[langNo] !== ''))
                 {
+                    console.error("WAS I HERE?!", targetObject.hreflang[langNo]);
                     let clone = loCheck;
                     clone.id += targetObject.hreflang[langNo];
                     clone.headers['Accept-language'] = targetObject.hreflang[langNo];
@@ -1154,6 +1166,8 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
                     linkArray.push(clone);
                     langNo++;
                 }
+
+
             }
         }
     }
@@ -1279,10 +1293,7 @@ const  testLinksInLinkset = async (dl, ls) =>
     {
         for (let linkTest of linkArray)
         {
-            //console.log("About to run linkTest: ", linkTest);
             await runTest(linkTest);
-            console.log("TEST RESULT: ", linkTest.id, linkTest.status);
-            console.log("TEST WAS: ", linkTest);
         }
     }
     catch (error)
