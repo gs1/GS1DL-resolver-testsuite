@@ -1,100 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GS1 Digital Link Resolver Test Suite</title>
-  <script src="GS1DigitalLinkToolkit.js"></script>
-  <script src="GS1DigitalLinkResolverTestSuite.js"></script>
-  <link rel="stylesheet" href="GS1DigitalLinkResolverTestSuiteStyles.css" />
-  <style type="text/css">
-    #dlEgInput {
-      margin:1em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>GS1 Digital Link Resolver Test Suite</title>
+    <script src="GS1DigitalLinkToolkit.js"></script>
+    <script src="GS1DigitalLinkResolverTestSuite.js"></script>
+    <link rel="stylesheet" href="GS1DigitalLinkResolverTestSuiteStyles.css"/>
+    <style type="text/css">
+        #dlEgInput
+        {
+            margin : 1em;
+        }
+    </style>
 </head>
 <body>
 
 <header><h1>GS1 Digital Link Test Suite</h1>
-<p>Conformance tests for <a href="Conformance.txt">version 1.1</a>, <a href="Conformance1_2.txt">version 1.2</a>.</p>
+    <p>Conformance tests for <a href="Conformance.txt">version 1.1</a>, <a href="Conformance1_2.txt">version 1.2</a>.
+    </p>
 </header>
 <main>
-
-<!-- You need an element (any kind of element) in your page with an id that is used by the test suite. If you use a different id, you'll need to update the const in the JS library accordingly -->
-<section id="gs1ResolverTests"></section>
+    <img alt="rotating circle showing tests are running" id="rotatingcircle" src="rotatingcircle.gif" height="40" style="visibility: hidden">
+    <!-- You need an element (any kind of element) in your page with an id that is used by the test suite. If you use a different id, you'll need to update the const in the JS library accordingly -->
+    <section id="gs1ResolverTests"></section>
 
 </main>
 
 
 <script>
-// This is just needed for this demo page, it's not part of the actual test suite.
+    // This is just needed for this demo page, it's not part of the actual test suite.
 
-window.onload = setUpForm;    
+    window.onload = setUpForm;
 
-function setUpForm() {
-  // Set up the form to ask for a GS1 Digital Link
-  let div = document.createElement('div');
-  div.id = 'inputDiv';
-  let p = document.createElement('p');
-  let dlVersionButton = document.createElement('input');
-  dlVersionButton.id = '_1_1';
-  dlVersionButton.type = 'radio';
-  dlVersionButton.name = 'version';
-  dlVersionButton.value = '1.1';
-  let versionLabel = document.createElement('label');
-  versionLabel.htmlFor = '_1_1';
-  let t = document.createTextNode('Test for GS1 Digital Link version 1.1');
-  versionLabel.appendChild(t);
-  versionLabel.appendChild(dlVersionButton);
-  p.appendChild(versionLabel);
+    function setUpForm()
+    {
+        // Set up the form to ask for a GS1 Digital Link
+        let div = document.createElement('div');
+        div.id = 'inputDiv';
+        let p = document.createElement('p');
+        let dlVersionButton = document.createElement('input');
+        dlVersionButton.id = '_1_1';
+        dlVersionButton.type = 'radio';
+        dlVersionButton.name = 'version';
+        dlVersionButton.value = '1.1';
+        let versionLabel = document.createElement('label');
+        versionLabel.htmlFor = '_1_1';
+        let t = document.createTextNode('Test for GS1 Digital Link version 1.1');
+        versionLabel.appendChild(t);
+        versionLabel.appendChild(dlVersionButton);
+        p.appendChild(versionLabel);
 
-  dlVersionButton = document.createElement('input');
-  dlVersionButton.id = '_1_2';
-  dlVersionButton.type = 'radio';
-  dlVersionButton.name = 'version';
-  dlVersionButton.value = '1.2';
-  dlVersionButton.checked = true;
-  versionLabel = document.createElement('label');
-  versionLabel.htmlFor = '_1_2';
-  t = document.createTextNode('Test for GS1 Digital Link version 1.2');
-  versionLabel.appendChild(t);
-  versionLabel.appendChild(dlVersionButton);
-  p.appendChild(versionLabel);
-  div.appendChild(p);
+        dlVersionButton = document.createElement('input');
+        dlVersionButton.id = '_1_2';
+        dlVersionButton.type = 'radio';
+        dlVersionButton.name = 'version';
+        dlVersionButton.value = '1.2';
+        dlVersionButton.checked = true;
+        versionLabel = document.createElement('label');
+        versionLabel.htmlFor = '_1_2';
+        t = document.createTextNode('Test for GS1 Digital Link version 1.2');
+        versionLabel.appendChild(t);
+        versionLabel.appendChild(dlVersionButton);
+        p.appendChild(versionLabel);
+        div.appendChild(p);
 
 
+        let dlExampleInput = document.createElement('input');
+        dlExampleInput.size = 40;
+        dlExampleInput.id = 'dlEgInput';
+        dlExampleInput.value = 'https://resolver-dv1.gs1.org/01/09506000134352';
+        dlExampleInput.className = 'dlTestSuiteTextInput';
+        let dlExampleInputLabel = document.createElement('label');
+        dlExampleInputLabel.for = dlExampleInput.id;
+        dlExampleInputLabel.className = 'dlTestSuiteTextLabel';
+        t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
+        dlExampleInputLabel.appendChild(t);
+        dlExampleInputLabel.appendChild(dlExampleInput);
 
-  let dlExampleInput = document.createElement('input');
-  dlExampleInput.size=40;
-  dlExampleInput.id = 'dlEgInput';
-  dlExampleInput.value = 'https://resolver-dv1.gs1.org/01/09506000134352';
-  dlExampleInput.className = 'dlTestSuiteTextInput';
-  let dlExampleInputLabel = document.createElement('label');
-  dlExampleInputLabel.for = dlExampleInput.id;
-  dlExampleInputLabel.className = 'dlTestSuiteTextLabel';
-  t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
-  dlExampleInputLabel.appendChild(t);
-  dlExampleInputLabel.appendChild(dlExampleInput);
+        let submitButton = document.createElement('button');
+        submitButton.id = 'submitButton';
+        submitButton.addEventListener('click', function ()
+        {
+            rotatingCircle(true);
+            let versionNumber = '';
+            let ele = document.getElementsByName('version');
+            for (let version of ele)
+            {
+                if (version.checked)
+                {
+                    versionNumber = version.value
+                }
+            }
+            testDL(dlExampleInput.value, versionNumber);
+        }, false);
+        t = document.createTextNode('Begin test');
+        submitButton.appendChild(t);
 
-  let submitButton = document.createElement('button');
-  submitButton.id = 'submitButton';
-  submitButton.addEventListener('click', function() {
-    let versionNumber = '';
-    let ele = document.getElementsByName('version');
-    for(i = 0; i < ele.length; i++) {
-      if(ele[i].checked) {versionNumber = ele[i].value}
+        div.appendChild(dlExampleInputLabel);
+        div.appendChild(submitButton);
+
+        let g = document.getElementById(outputElement);
+        g.appendChild(div);
     }
-    testDL(dlExampleInput.value, versionNumber);
-  }, false);
-  t = document.createTextNode('Begin test'); 
-  submitButton.appendChild(t);
-
-  div.appendChild(dlExampleInputLabel);
-  div.appendChild(submitButton);
-
-  var g = document.getElementById(outputElement);
-  g.appendChild(div);
-}
 
 </script>
 
-</body></html>
+</body>
+</html>
