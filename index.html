@@ -15,7 +15,7 @@
 </head>
 <body>
 
-<header><h1>GS1 Digital Link Test Suite</h1>
+<header id="corporateHead"><h1>GS1 Digital Link Test Suite</h1>
     <p>Conformance tests for <a href="Conformance.txt">version 1.1</a>, <a href="Conformance1_2.txt">version 1.2</a>.
     </p>
 </header>
@@ -23,7 +23,7 @@
     <img alt="rotating circle showing tests are running" id="rotatingcircle" src="rotatingcircle.gif" height="40" style="visibility: hidden">
     <!-- You need an element (any kind of element) in your page with an id that is used by the test suite. If you use a different id, you'll need to update the const in the JS library accordingly -->
     <section id="gs1ResolverTests"></section>
-
+    <p style="clear:both">Please report any bugs in this test suite by raising an issue in its <a href="https://github.com/gs1/GS1DL-resolver-testsuite">GitHub repository</a>.</p>
 </main>
 
 
@@ -68,7 +68,7 @@
         let dlExampleInput = document.createElement('input');
         dlExampleInput.size = 40;
         dlExampleInput.id = 'dlEgInput';
-        dlExampleInput.value = 'https://resolver-dv1.gs1.org/01/09506000134352';
+        dlExampleInput.value = 'https://id.gs1.org/01/09506000134352';
         dlExampleInput.className = 'dlTestSuiteTextInput';
         let dlExampleInputLabel = document.createElement('label');
         dlExampleInputLabel.for = dlExampleInput.id;

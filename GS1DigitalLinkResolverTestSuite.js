@@ -146,7 +146,7 @@ const testDL = async (dl, dlVersion) =>
 
         //We'll wait for these run tests
         await runTest(checkHttpVersion(domain));
-        await runTest(headerBasedChecks(dl));
+        await runTest(headerBasedChecks(dl, dlVersion));
         await runTest(errorCodeChecks(dl));
         await runTest(trailingSlashCheck(dl));
         await runTest(compressionChecks(dl, domain, gs1dlt));
@@ -222,7 +222,7 @@ const checkHttpVersion = (domain) =>
     return httpVersion;
 }
 
-const headerBasedChecks = (dl) =>
+const headerBasedChecks = (dl, dlVersion) =>
 {
     // We'll perform a number of checks based on the headers returned from checking the DL directly
 
@@ -348,7 +348,9 @@ const headerBasedChecks = (dl) =>
                 }
             }
 
-            // Now we want to set up tests for all the links in linkArray
+            // Now we want to set up tests for all the links in linkArray but only for testing version 1.1 (1.2 tests the links in the linkset)
+
+if (dlVersion === '1.1'){
 
             for (let i in linkArray)
             {
@@ -399,7 +401,7 @@ const headerBasedChecks = (dl) =>
              Promise.resolve()
              );
              */
-
+}
             if (linkMetadata.status === 'pass')
             {
                 linkMetadata.msg = 'Target URL and required metadata found for all links';
@@ -797,7 +799,7 @@ const testLinkset = (dl) =>
     contextObjectArray.id = 'contextObjectArray';
     contextObjectArray.test = 'The "linkset" member is an array in which a distinct JSON object - the "link context object" - MUST be used to represent links that have the same link context.';
     contextObjectArray.msg = 'No array found';
-    console.log("contextObjectArray = ", contextObjectArray);
+    // console.log("contextObjectArray = ", contextObjectArray);
     recordResult(contextObjectArray);
 
     //Setup contextObject ready for test
@@ -1144,7 +1146,7 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
                     if (stripQuery(data.result.location) === stripQuery(loCheck.href))
                     { // There is a redirection to the correct link
                         loCheck.status = 'pass';
-                        loCheck.msg.replace('failed to redirect to ', 'redirected to ');
+                        loCheck.msg = loCheck.msg.replace('failed to redirect to ', 'redirected to ');
                         recordResult(loCheck);
                     }
                 }
@@ -1284,8 +1286,6 @@ const  testLinksInLinkset = async (dl, ls) =>
         }
     }
 
-    // Having dealt with the special case of the defaultLink and defaultLink*, we can now work through all the other
-    // link types.
     authorLinkSetLanguageTests(ls, dl, linkArray);
 
     // OK, run the tests!
@@ -1335,7 +1335,7 @@ const describeRequest = (dl, linkType, targetObject, testObject) =>
         msg += 'Accept: ' + testObject.headers.Accept + '.';
     }
 
-    msg += ' Request url is ' + testObject.url;
+    // msg += ' Request url is ' + testObject.url;
     return msg;
 }
 
