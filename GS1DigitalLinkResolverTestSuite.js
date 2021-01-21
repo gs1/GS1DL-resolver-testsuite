@@ -265,16 +265,17 @@ const headerBasedChecks = (dl, dlVersion) =>
     corsCheck.process = async (data) =>
     {
         // console.log('Looking for access control header ' + data.result['access-control-allow-origin']);
-        if (data.result['access-control-allow-origin'] !== '')
+        if (data.result['access-control-allow-origin'])
         {
             // That's probably enough tbh
             corsCheck.status = 'pass';
             corsCheck.msg = 'CORS headers detected';
             recordResult(corsCheck);
         }
-        if (((data.result['access-control-allow-methods'].indexOf('GET') > -1) ||
-            (data.result['access-control-allow-methods'].indexOf('HEAD') > -1)) ||
-            (data.result['access-control-allow-methods'].indexOf('OPTIONS') > -1))
+        if ((typeof data.result['access-control-allow-methods'] === 'string') &&
+            (((data.result['access-control-allow-methods'].indexOf('GET') > -1) &&
+            (data.result['access-control-allow-methods'].indexOf('HEAD') > -1)) &&
+            (data.result['access-control-allow-methods'].indexOf('OPTIONS') > -1)))
         { // We have our three allowed methods
             methodsCheck.msg = 'GET, HEAD an OPTIONS methods declared to be supported';
             methodsCheck.status = 'pass';
