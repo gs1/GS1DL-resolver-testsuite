@@ -25,9 +25,10 @@ const RabinRegEx = /^((https?):)(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?
 // (see https://www.w3.org/TR/powder-grouping/#rabinsRegEx for the origin of this regex by Jo Rabin)
 // gives [2] scheme, [4] domain,[9] port, [10] path, [12] query, [14] fragment
 
-const plausibleDlURI = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?(([^?#]*)\/(01|gtin|8006|itip|8013|gmn|8010|cpid|414|gln|417|party|8017|gsrnp|8018|gsrn|255|gcn|00|sscc|253|gdti|401|ginc|402|gsin|8003|grai|8004|giai)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?/;
-
-const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?(([^?#]*)\/(01|8006|8013|8010|414|417|8017|8018|255|00|253|401|402|8003|8004)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?/;
+// This is 'RE1' from the DL 1.2 spec
+const plausibleDlURI = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(((\/(01|gtin|8006|itip|8013|gmn|8010|cpid|414|gln|417|party|8017|gsrnp|8018|gsrn|255|gcn|00|sscc|253|gdti|401|ginc|402|gsin|8003|grai|8004|giai)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?))/;
+// And this is 'RE2' ('RE3' that attempts to look for a compressed DL URI is not used in the test suite).
+const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(((\/(01|8006|8013|8010|414|417|8017|8018|255|00|253|401|402|8003|8004)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?))/;
 
 const linkTypeListSource = 'https://gs1.github.io/WebVoc/gs1Voc_v1_3.jsonld';
 
@@ -100,12 +101,12 @@ const testDL = async (dl, dlVersion) =>
         plausibleDL = Object.create(resultProps);
         plausibleDL.id = 'plausibleDL';
         plausibleDL.test = 'Following GS1 Digital Link: URI syntax, we can check whether a URL plausibly is, or definitely is not, a DL URI';
-        plausibleDL.msg = 'Given URL does not conform to GS1 Digital Link URI syntax, no further tests are possible';
+        plausibleDL.msg = 'Given URL does not conform to GS1 Digital Link URI syntax (uncompressed), no further tests are possible';
         plausibleDL.status = 'fail';
         if (plausibleDlURI.test(dl))
         {
             plausibleDL.status = 'pass';
-            plausibleDL.msg = 'URL under test plausibly is a GS1 Digital Link URI';
+            plausibleDL.msg = 'URL under test plausibly is a GS1 Digital Link URI (uncompressed)';
             if (!plausibleDlURINoAlphas.test(dl))
             {
                 plausibleDL.status = 'warn';
@@ -351,10 +352,10 @@ const headerBasedChecks = (dl, dlVersion) =>
 
             // Now we want to set up tests for all the links in linkArray but only for testing version 1.1 (1.2 tests the links in the linkset)
 
-if (dlVersion === '1.1'){
-
-            for (let i in linkArray)
+            if (dlVersion === '1.1')
             {
+              for (let i in linkArray)
+              {
                 if (!linkArray.hasOwnProperty(i)) continue;
 
                 linkArray[i].id = 'link' + i;
@@ -394,7 +395,7 @@ if (dlVersion === '1.1'){
             {
                 console.log('There has been a problem with your fetch operation for: ', error.message);
             }
-
+            // Old code...
             /*
              linkArray.reduce(
              (chain, d) => chain.then(() => runTest(d))
@@ -402,7 +403,7 @@ if (dlVersion === '1.1'){
              Promise.resolve()
              );
              */
-}
+            }
             if (linkMetadata.status === 'pass')
             {
                 linkMetadata.msg = 'Target URL and required metadata found for all links';
@@ -608,7 +609,7 @@ const  compressionChecks = (dl, domain, gs1dlt) =>
     return validDecompressCheck;
 }
 
-// Tests for linkType=all only apply to DL version 1.1
+// jsonTests only apply to DL version 1.1
 const jsonTests = (dl) =>
 {
     let varyAccept = Object.create(resultProps);
@@ -813,6 +814,8 @@ const testLinkset = (dl) =>
     //Author test script for execution in runTest()
     soleMember.process = async (data) =>
     {
+
+//        data = dummy; Used in debugging. See dummy linkset at the end of the file
         try
         {
             soleMember.status = data.linkset && Array.isArray(data.linkset) ? 'pass' : 'fail';
@@ -981,17 +984,18 @@ function checkTargetObjects(lt, a)
         targetObj.msg = 'Target link minimum requirements not met';
         // We know we have a link rel type or we wouldn't be here. So we just need to check the other two
         if ((typeof a[target].href === 'string') && (RabinRegEx.test(a[target].href)))
-        {  // we have a target URL. Now to check the title - which can come one of two ways
+        {  // we have a target URL. Now to check the title - which can come in two ways (that are not exclusive)
             let myTitle = '';
             if ((typeof a[target].title === 'string') && (a[target].title !== ""))
             {
                 myTitle = a[target].title;
             }
-            else if (Array.isArray(a[target]["title*"]) &&
-                typeof a[target]["title*"][0].value === 'string' &&
-                a[target]["title*"] !== "")
+            if (Array.isArray(a[target]["title*"]) && typeof a[target]["title*"][0].value === 'string' && a[target]["title*"][0].value !== "")
             {
-                myTitle = a[target]["title*"];
+                for (const t of a[target]["title*"])
+                {
+                  myTitle += `, ${t.value} (${t.language})`;
+                }
             }
             // other attributes are optional, but if present, they need to conform to certain rules.
             // Start with hreflang which takes an array of language codes
@@ -1178,129 +1182,122 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
 
 const  testLinksInLinkset = async (dl, ls) =>
 {
-    // This function is called if we're confident that we have a linkset. The linkset itself arrives as ls.
-    // We're going to set up an array of tests and reduce that promise array separately for each link
-    let linkArray = [];
+  // This function is called if we're confident that we have a linkset. The linkset itself arrives as ls.
+  // We're going to set up an array of tests and reduce that promise array separately for each link
+  let linkArray = [];
 
-    // Setup Test 1: Checking the default response
-    let defaultResponseCheck = Object.create(resultProps);
-    defaultResponseCheck.id = 'defaultResponseCheck';
-    defaultResponseCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
-    let u = stripQuery(dl);
-    defaultResponseCheck.msg = 'Request to ' + u + ' without any extra information did not redirect to default link';
-    defaultResponseCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+  // Setup Test 1: Checking the default response
+  let defaultResponseCheck = Object.create(resultProps);
+  defaultResponseCheck.id = 'defaultResponseCheck';
+  defaultResponseCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+  let u = stripQuery(dl);
+  defaultResponseCheck.msg = 'Request to ' + u + ' without any extra information did not redirect to default link';
+  defaultResponseCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+  recordResult(defaultResponseCheck);
+  defaultResponseCheck.process = async (data) =>
+  {
+    // There can only be one href for the defaultLink, so we can hard-code the [0] value.
+    if (data.result.location === ls["https://gs1.org/voc/defaultLink"][0].href)
+    { // There is a redirection to the default link
+      defaultResponseCheck.status = 'pass';
+      defaultResponseCheck.msg = 'Redirection to default link of ' + ls["https://gs1.org/voc/defaultLink"][0].href + ' confirmed';
+    }
+    else
+    {
+      defaultResponseCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink"][0].href;
+    }
     recordResult(defaultResponseCheck);
-    defaultResponseCheck.process = async (data) =>
+  }
+  linkArray.push(defaultResponseCheck);
+
+  // Now we need to check any default* links - which is more complicated.
+  if (Array.isArray(ls["https://gs1.org/voc/defaultLink*"]))
+  {
+    // So we have one or more defaultLink* entries
+    for (let dlElement of ls["https://gs1.org/voc/defaultLink*"])
     {
-        // There can only be one href for the defaultLink, so we can hard-code the [0] value.
-        if (data.result.location === ls["https://gs1.org/voc/defaultLink"][0].href)
-        { // There is a redirection to the default link
-            defaultResponseCheck.status = 'pass';
-            defaultResponseCheck.msg = 'Redirection to default link of ' + ls["https://gs1.org/voc/defaultLink"][0].href + ' confirmed';
+      // Loop through links for the defaultLink* link type
+      // Resolvers MAY use any HTTP request header to differentiate defaultLink* entries
+      // However, only Accept-Language and Accept are part of the spec so that's all we're going to test for.
+      // The spec does not define how to prioritize the two but for simplicity we'll treat them as equal and
+      // use them both when testing, i.e. look at each link and use whatever info is available that can be
+      // expressed in an HTTP request.
+
+      // Sample 'dlElement' would be
+      // {
+      //   "href": "https://dalgiardino.com/risotto-rice-with-mushrooms/",  <-- We know we have this
+      //   "title": "Product information",                                  <-- we might have this and/or title*
+      //   "type": "text/html",                                             <-- This is one thing we're interested in if present
+      //   "hreflang": ["en", "fr"]                                         <-- And this is the other
+      // }
+
+      let defLinkStarCheck = Object.create(resultProps);
+      defLinkStarCheck.id = 'defLinkStar';
+      defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+      let u = stripQuery(dl);
+      defLinkStarCheck.msg = `Request to ${u} `;
+      if ((typeof dlElement.type === 'string') && (dlElement.type !== ''))
+      { // So we have a media type to specify
+        defLinkStarCheck.headers['Accept'] = dlElement.type;
+        defLinkStarCheck.msg += `with Accept header set to ${dlElement.type} `;
+      }
+      if (Array.isArray(dlElement.hreflang))
+      { // We have a language. We have already checked that if there is a language, it's in an array and is of the right format, so we can use it confidently
+        defLinkStarCheck.headers['Accept-language'] = dlElement.hreflang[0];
+        if (defLinkStarCheck.msg.indexOf('header set to') !== -1)
+        { // meaning we have set an Accept header
+          defLinkStarCheck.msg += ' and ';
         }
-        else
+        defLinkStarCheck.msg += `with Accept-language header set to ${dlElement.hreflang[0]} `;
+      }
+      defLinkStarCheck.msg += `did not redirect to the correct link, which is ${dlElement.href}`;
+      recordResult(defLinkStarCheck);
+      defLinkStarCheck.url = `${perlTests}?test=getAllHeaders&testVal=${encodeURIComponent(u)}`;
+      defLinkStarCheck.process = async (data) =>
+      {
+        if (data.result.location === dlElement.href)
+        {  // There is a redirection to the correct link
+          defLinkStarCheck.status = 'pass';
+          defLinkStarCheck.msg = `Redirection to default* link of '${dlElement.href}' confirmed.`;
+          recordResult(defLinkStarCheck);
+        }
+        //Add this test to the linkArray
+      }
+      linkArray.push(defLinkStarCheck);
+
+      // So far we've assumed a single language. There might be more in which case we need to check those too
+      // but it's almost the same so we start by cloning the text object
+
+      if (Array.isArray(dlElement.hreflang))
+      {
+        let extraLang = 1;
+        while (dlElement.hreflang[extraLang] !== undefined)
         {
-            defaultResponseCheck.msg += ' which is ' + ls["https://gs1.org/voc/defaultLink"][0].href;
+          console.log('Should not be here');
+          let o = Object.assign(Object.create(resultProps), defLinkStarCheck);
+          // give this cloned test object a new id and update the language header
+          o.id += `${extraLang}`;
+          o.headers['Accept-language'] = dlElement.hreflang[extraLang];
+          recordResult(o);
+          linkArray.push(o);
+          extraLang++;
         }
-        recordResult(defaultResponseCheck);
+      }
     }
-    linkArray.push(defaultResponseCheck);
-
-    // Now we need to check any default* links - which is more complicated.
-    if (Array.isArray(ls["https://gs1.org/voc/defaultLink*"]))
-    {  
-        // So we have one or more defaultLink* entries
-        for (let dlElement of ls["https://gs1.org/voc/defaultLink*"])
-        {
-            // Loop through links for the defaultLink* link type
-            // Resolvers MAY use any HTTP request header to differentiate defaultLink* entries
-            // However, only Accept-Language and Accept are part of the spec so that's all we're going to test for.
-            // We'll test them independently as the spec does not define how to prioritize the two.
-            if (typeof dlElement.hreflang[0] === 'string')
-            {
-                let langArray = dlElement.hreflang; // Just for convenience
-                for (let langIndex in langArray)
-                {
-                    //Safety code when using for..in as some objects may have inherited parent properties
-                    if (!langArray.hasOwnProperty(langIndex)) continue;
-
-                    //Set up a test for this language
-                    let defLinkStarCheck = Object.create(resultProps);
-                    defLinkStarCheck.id = `defLinkStarCheck[${langIndex}][${langArray[langIndex]}]`;
-                    defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
-                    let u = stripQuery(dl);
-                    defLinkStarCheck.msg = `Request to '${u}' with Accept-Language header set to '${langArray[langIndex]}' did not redirect to the correct link`;
-                    defLinkStarCheck.url = `${perlTests}?test=getAllHeaders&testVal=${encodeURIComponent(u)}`;
-                    defLinkStarCheck.headers = {'Accept-language': langArray[langIndex]};
-                    recordResult(defLinkStarCheck);
-                    defLinkStarCheck.process = async (data) =>
-                    {
-                        if (data.result.location === dlElement.href)
-                        {
-                            // There is a redirection to the correct link
-                            defLinkStarCheck.status = 'pass';
-                            defLinkStarCheck.msg = `Redirection to default* link of '${dlElement.href}' confirmed for language '${langArray[langIndex]}`;
-                        }
-                        else
-                        {
-                            defLinkStarCheck.msg += ' which is ' + dlElement.href;
-                        }
-                        recordResult(defLinkStarCheck);
-                    }
-                    //Add this language test to the linkArray
-                    linkArray.push(defLinkStarCheck);
-
-
-                    if ((typeof dlElement.type === 'string') && (dlElement.type !== ''))
-                    {
-                        // So we have a value of type to use
-                        let type = dlElement.type.substring(dlElement.type.indexOf('/') + 1);
-                        let defLinkStarCheck = Object.create(resultProps);
-                        defLinkStarCheck.id = `defLinkStarCheck[${langIndex}]${type}`;
-                        defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
-                        let u = stripQuery(dl);
-                        defLinkStarCheck.msg = `Request to '${u}' with Accept header set to '${dlElement.type}' did not redirect to the correct link`;
-                        defLinkStarCheck.url = `${perlTests}?test=getAllHeaders&testVal=${encodeURIComponent(u)}`;
-                        defLinkStarCheck.headers = {'Accept': dlElement.type}
-                        // console.log(defLinkStarCheck.url);
-                        recordResult(defLinkStarCheck);
-                        defLinkStarCheck.process = async (data) =>
-                        {
-                            if (data.result.location === dlElement.type)
-                            {
-                                // There is a redirection to the correct link
-                                defLinkStarCheck.status = 'pass';
-                                defLinkStarCheck.msg = 'Redirection to default* link of ' + dlElement.href + ' confirmed for type ' + dlElement.type;
-                            }
-                            else
-                            {
-                                defLinkStarCheck.msg += ' which is ' + dlElement.href;
-                            }
-                            recordResult(defLinkStarCheck);
-                        }
-
-                        //Add this language-type test to the linkArray
-                        linkArray.push(defLinkStarCheck);
-                    }
-                }
-            }
-        }
-    }
-
-    authorLinkSetLanguageTests(ls, dl, linkArray);
-
-    // OK, run the tests!
-    try
+  }
+  authorLinkSetLanguageTests(ls, dl, linkArray);
+  // OK, run the tests!
+  try
+  {
+    for (let linkTest of linkArray)
     {
-        for (let linkTest of linkArray)
-        {
-            await runTest(linkTest);
-        }
+        await runTest(linkTest);
     }
-    catch (error)
-    {
-        console.log('There has been a problem with your fetch operation for: ', error.message);
-    }
+  }
+  catch (error)
+  {
+    console.log('There has been a problem with your fetch operation for: ', error.message);
+  }
 
     /* Was:
     linkArray.reduce(
@@ -1596,10 +1593,8 @@ let dummy = {
                 {
                     "href": "https://video.example",
                     "hreflang": ["en", "fr"],
-                    "title*": [{"value": "See it in action!", "language": "en"}, {
-                        "value": "Voyez-le en action!",
-                        "language": "fr"
-                    }]
+                    "title": "See it in action!",
+                    "title*": [{"value": "See it in action!", "language": "en"}, {"value": "Voyez-le en action!", "language": "fr"}]
                 }
             ]
         }
