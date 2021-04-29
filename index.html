@@ -16,8 +16,7 @@
 <body>
 
 <header id="corporateHead"><h1>GS1 Digital Link Test Suite</h1>
-    <p>Conformance tests for <a href="Conformance.txt">version 1.1</a>, <a href="Conformance1_2.txt">version 1.2</a>.
-    </p>
+    <p>Conformance tests <a href="Conformance.txt">GS1 Digital Link version 1.1</a>.</p>
 </header>
 <main>
     <img alt="rotating circle showing tests are running" id="rotatingcircle" src="rotatingcircle.gif" height="40" style="visibility: hidden">
@@ -45,7 +44,7 @@
         dlVersionButton.value = '1.1';
         let versionLabel = document.createElement('label');
         versionLabel.htmlFor = '_1_1';
-        let t = document.createTextNode('Test for GS1 Digital Link version 1.1');
+        let t = document.createTextNode('Test HTTP Link headers');
         versionLabel.appendChild(t);
         versionLabel.appendChild(dlVersionButton);
         p.appendChild(versionLabel);
@@ -58,7 +57,7 @@
         dlVersionButton.checked = true;
         versionLabel = document.createElement('label');
         versionLabel.htmlFor = '_1_2';
-        t = document.createTextNode('Test for GS1 Digital Link version 1.2');
+        t = document.createTextNode('Test Linkset');
         versionLabel.appendChild(t);
         versionLabel.appendChild(dlVersionButton);
         p.appendChild(versionLabel);
@@ -68,7 +67,7 @@
         let dlExampleInput = document.createElement('input');
         dlExampleInput.size = 40;
         dlExampleInput.id = 'dlEgInput';
-        dlExampleInput.value = 'https://id.gs1.org/01/09506000134352';
+        dlExampleInput.value = 'https://resolver-dv1.gs1.org/01/09506000134352';
         dlExampleInput.className = 'dlTestSuiteTextInput';
         let dlExampleInputLabel = document.createElement('label');
         dlExampleInputLabel.for = dlExampleInput.id;

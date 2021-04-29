@@ -918,7 +918,7 @@ const testLinkset = (dl) =>
                             {
                                 // Multiple default links found, which is an error
                                 defaultLinkObject.status = 'fail';
-                                defaultLinkObject.msg = 'Duplicate default link found (perhaps you meant to use defaultLink*?)';
+                                defaultLinkObject.msg = 'Duplicate default link found (perhaps you meant to use defaultLinkMulti?)';
                                 recordResult(defaultLinkObject);
                                 validLinkset = false;
                             }
@@ -1061,7 +1061,7 @@ function checkTargetObjects(lt, a)
 
 /**
  * Author a series of tests for all the linktypes found in the linkset
- * (except for defaultLink and defaultLink* which have already been authored)
+ * (except for defaultLink and defaultLinkMulti which have already been authored)
  * @param ls
  * @param dl
  * @param linkArray
@@ -1077,7 +1077,7 @@ const authorLinkSetLanguageTests = (ls, dl, linkArray) =>
 
         // r is a top level element in the context object. This might be things like 'itemDescription' and anchor.
         // We are only interested where r is a URL and is not one of the default links already processed
-        if ((RabinRegEx.test(r)) && ((r !== 'https://gs1.org/voc/defaultLink') && (r !== 'https://gs1.org/voc/defaultLink*')))
+        if ((RabinRegEx.test(r)) && ((r !== 'https://gs1.org/voc/defaultLink') && (r !== 'https://gs1.org/voc/defaultLinkMulti')))
         {
             let linkType = r.replace('https://gs1.org/voc/', 'gs1:');
             //console.log('We have a link type of ' + r);
@@ -1193,6 +1193,7 @@ const  testLinksInLinkset = async (dl, ls) =>
   let u = stripQuery(dl);
   defaultResponseCheck.msg = 'Request to ' + u + ' without any extra information did not redirect to default link';
   defaultResponseCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+  defaultResponseCheck.headers = {};
   recordResult(defaultResponseCheck);
   defaultResponseCheck.process = async (data) =>
   {
@@ -1210,14 +1211,15 @@ const  testLinksInLinkset = async (dl, ls) =>
   }
   linkArray.push(defaultResponseCheck);
 
-  // Now we need to check any default* links - which is more complicated.
-  if (Array.isArray(ls["https://gs1.org/voc/defaultLink*"]))
+  // Now we need to check any defaultMulti links - which is more complicated.
+  if (Array.isArray(ls["https://gs1.org/voc/defaultLinkMulti"]))
   {
-    // So we have one or more defaultLink* entries
-    for (let dlElement of ls["https://gs1.org/voc/defaultLink*"])
+    // So we have one or more defaultLinkMulti entries
+    let defLinkMultiCount = 0;
+    for (let dlElement of ls["https://gs1.org/voc/defaultLinkMulti"])
     {
-      // Loop through links for the defaultLink* link type
-      // Resolvers MAY use any HTTP request header to differentiate defaultLink* entries
+      // Loop through links for the defaultLinkMulti link type
+      // Resolvers MAY use any HTTP request header to differentiate defaultLinkMulti entries
       // However, only Accept-Language and Accept are part of the spec so that's all we're going to test for.
       // The spec does not define how to prioritize the two but for simplicity we'll treat them as equal and
       // use them both when testing, i.e. look at each link and use whatever info is available that can be
@@ -1231,39 +1233,41 @@ const  testLinksInLinkset = async (dl, ls) =>
       //   "hreflang": ["en", "fr"]                                         <-- And this is the other
       // }
 
-      let defLinkStarCheck = Object.create(resultProps);
-      defLinkStarCheck.id = 'defLinkStar';
-      defLinkStarCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+      let defLinkMultiCheck = Object.create(resultProps);
+      // if (defLinkMultiCheck.hasOwnProperty('id')) continue;
+      defLinkMultiCheck.id = `defLinkMulti${defLinkMultiCount++}`;
+      defLinkMultiCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
       let u = stripQuery(dl);
-      defLinkStarCheck.msg = `Request to ${u} `;
+      defLinkMultiCheck.msg = `Request to ${u} `;
       if ((typeof dlElement.type === 'string') && (dlElement.type !== ''))
       { // So we have a media type to specify
-        defLinkStarCheck.headers['Accept'] = dlElement.type;
-        defLinkStarCheck.msg += `with Accept header set to ${dlElement.type} `;
+        defLinkMultiCheck.headers['Accept'] = dlElement.type;
+        defLinkMultiCheck.msg += `with Accept header set to ${dlElement.type} `;
       }
       if (Array.isArray(dlElement.hreflang))
       { // We have a language. We have already checked that if there is a language, it's in an array and is of the right format, so we can use it confidently
-        defLinkStarCheck.headers['Accept-language'] = dlElement.hreflang[0];
-        if (defLinkStarCheck.msg.indexOf('header set to') !== -1)
+        defLinkMultiCheck.headers['Accept-language'] = dlElement.hreflang[0];
+        if (defLinkMultiCheck.msg.indexOf('header set to') !== -1)
         { // meaning we have set an Accept header
-          defLinkStarCheck.msg += ' and ';
+          defLinkMultiCheck.msg += ' and ';
         }
-        defLinkStarCheck.msg += `with Accept-language header set to ${dlElement.hreflang[0]} `;
+        defLinkMultiCheck.msg += `with Accept-language header set to ${dlElement.hreflang[0]} `;
       }
-      defLinkStarCheck.msg += `did not redirect to the correct link, which is ${dlElement.href}`;
-      recordResult(defLinkStarCheck);
-      defLinkStarCheck.url = `${perlTests}?test=getAllHeaders&testVal=${encodeURIComponent(u)}`;
-      defLinkStarCheck.process = async (data) =>
+      defLinkMultiCheck.msg += `did not redirect to the correct link, which is ${dlElement.href}`;
+      recordResult(defLinkMultiCheck);
+      defLinkMultiCheck.url = `${perlTests}?test=getAllHeaders&testVal=${encodeURIComponent(u)}`;
+      defLinkMultiCheck.target = dlElement.href;
+      defLinkMultiCheck.process = async (data) =>
       {
         if (data.result.location === dlElement.href)
         {  // There is a redirection to the correct link
-          defLinkStarCheck.status = 'pass';
-          defLinkStarCheck.msg = `Redirection to default* link of '${dlElement.href}' confirmed.`;
-          recordResult(defLinkStarCheck);
+          defLinkMultiCheck.status = 'pass';
+          defLinkMultiCheck.msg = `Redirection to defaultMulti link of '${dlElement.href}' confirmed.`;
+          recordResult(defLinkMultiCheck);
         }
         //Add this test to the linkArray
       }
-      linkArray.push(defLinkStarCheck);
+      linkArray.push(defLinkMultiCheck);
 
       // So far we've assumed a single language. There might be more in which case we need to check those too
       // but it's almost the same so we start by cloning the text object
@@ -1273,8 +1277,7 @@ const  testLinksInLinkset = async (dl, ls) =>
         let extraLang = 1;
         while (dlElement.hreflang[extraLang] !== undefined)
         {
-          console.log('Should not be here');
-          let o = Object.assign(Object.create(resultProps), defLinkStarCheck);
+          let o = Object.assign(Object.create(resultProps), defLinkMultiCheck);
           // give this cloned test object a new id and update the language header
           o.id += `${extraLang}`;
           o.headers['Accept-language'] = dlElement.hreflang[extraLang];
@@ -1542,7 +1545,7 @@ let dummy = {
                     "title": "foo"
                 }
             ],
-            "https://gs1.org/voc/defaultLink*": [
+            "https://gs1.org/voc/defaultLinkMulti": [
                 {
                     "href": "https://dalgiardino.com/risotto-rice-with-mushrooms/index.html.vi",
                     "hreflang": ["vi"],
