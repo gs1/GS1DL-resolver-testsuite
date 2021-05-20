@@ -1,5 +1,4 @@
-const outputElement = 'gs1ResolverTests' // Set this to the id of the element in the document where you want the output
-                                         // to.
+const outputElement = 'gs1ResolverTests' // Set this to the id of the element in the document where you want the output to go
 
 const resultProps = {
     "id": "", //An id for the test
@@ -10,7 +9,7 @@ const resultProps = {
     "headers": {}  // Ready for any headers we want to set
 }
 
-const linkProps = {
+const linkProps = { // We'll need to test lots of links so it's good to have al their properties in an object
     "href": "",
     "rel": "",
     "title": "",
@@ -18,10 +17,10 @@ const linkProps = {
     "type": ""
 }
 
-const perlTests = 'https://philarcher.org/cgi-bin/testHarness.pl';
+const perlTests = 'https://philarcher.org/cgi-bin/testHarness.pl';  // This is the helper application we call. It generally does a HEAD request and returns all the info we need in a JSON object. It's much easier to control and work with than just fetch. Ideally, yes, it should be on a gs1 domain.
 
 // const RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
-const RabinRegEx = /^((https?):)(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+const RabinRegEx = /^((https?):)(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;  // As above but specifically for HTTP(s) URIs
 // (see https://www.w3.org/TR/powder-grouping/#rabinsRegEx for the origin of this regex by Jo Rabin)
 // gives [2] scheme, [4] domain,[9] port, [10] path, [12] query, [14] fragment
 
@@ -35,8 +34,7 @@ const linkTypeListSource = 'https://gs1.github.io/WebVoc/gs1Voc_v1_3.jsonld';
 // Global variables
 let testList = [];
 let resultsArray = [];
-let domain;
-let gs1dlt = new GS1DigitalLinkToolkit();
+let gs1dlt = new GS1DigitalLinkToolkit(); // We'll make a lot of use of the GS1 Digital Link toolkit
 
 
 // ***************************************************************************
@@ -48,13 +46,14 @@ let gs1dlt = new GS1DigitalLinkToolkit();
 const testDL = async (dl, dlVersion) =>
 {
     clearGrid();
+    let domain; // We need to make tests on the domain name in the DL URI
     // First we want to test whether the given input is a URL or not.
     // Set up the a results object for testing whether what we have is a URL or not
     let isURL = Object.create(resultProps);
     isURL.id = 'isURL';
     isURL.test = 'Not listed as a conformance criterion but the DL URI must be a valid URL';
     isURL.msg = 'Given GS1 Digital Link URI is not a valid URL';
-    recordResult(isURL);
+    recordResult(isURL);  // The default message is sent to the output. We'll update it if the test is passed.
 
     // While we're at it, we'll set up the results object for whether it's a valid DL URI or not
     let validDL = Object.create(resultProps);
@@ -172,7 +171,7 @@ const TLSCheck = async (domain) =>
 {
     // This is designed to make sure that the server is available over TLS (i.e. using https works, even if the given
     // DL is http) It does not handle a JSON response and therefore we don't use the promises array
-    console.log('Domain is ' + domain);
+    //console.log('Domain is ' + domain);
     let tlsOK = Object.create(resultProps);
     tlsOK.id = 'tlsOK';
     tlsOK.test = 'SHALL support HTTP Over TLS (HTTPS)';
@@ -815,7 +814,7 @@ const testLinkset = (dl) =>
     soleMember.process = async (data) =>
     {
 
-//        data = dummy; Used in debugging. See dummy linkset at the end of the file
+//        data = dummy; // Used in debugging. See dummy linkset at the end of the file
         try
         {
             soleMember.status = data.linkset && Array.isArray(data.linkset) ? 'pass' : 'fail';
@@ -877,13 +876,12 @@ const testLinkset = (dl) =>
                         }
                     }
 
-                    // Lots to do here but we need to do it after we've fetched the link types, hence putting it
-                    // here after a .then Need a counter as we need unique IDs for the reporting objects
                     let count = 0;
                     let defaultLinkOK = false;
                     let defaultLinkObject = Object.create(resultProps);
                     defaultLinkObject.id = 'defaultLinkObject';
-                    defaultLinkObject.test = 'SHALL recognise one available link as the default for any given request URI.';
+//                    defaultLinkObject.test = 'SHALL recognise one available link as the default for any given request URI.';
+                    defaultLinkObject.test = 'SHALL recognise one available linkType as the default for any given request URI and, within that, SHALL recognise one default link which may be at a less granular level than the request URI';
                     defaultLinkObject.msg = 'No default link found';
                     recordResult(defaultLinkObject);
 
@@ -897,7 +895,8 @@ const testLinkset = (dl) =>
                         { // We're looking at a URI as a link rel type
                             let linkRelObject = Object.create(resultProps);
                             linkRelObject.id = 'linkRelObject' + count;
-                            linkRelObject.test = 'If supporting multiple links per identified item, (resolvers) SHALL recognise the GS1 Web vocabulary namespace. A resolver MAY recognise additional namespaces (registered IANA link rel types are ignored in this test suite)';
+                            linkRelObject.test = 'If supporting multiple links per identified item, SHALL recognise the GS1 Web vocabulary namespace, noting its change management practice. A resolver SHOULD recognise the schema.org namespace. A resolver MAY recognise additional namespaces but link types defined elsewhere SHALL NOT duplicate link types available from GS1 and schema.org.';
+//                            linkRelObject.test = 'If supporting multiple links per identified item, (resolvers) SHALL recognise the GS1 Web vocabulary namespace. A resolver MAY recognise additional namespaces (registered IANA link rel types are ignored in this test suite)';
                             linkRelObject.msg = 'Link relation type ' + i + ' is not recognised or proposed by GS1';
                             linkRelObject.status = 'warn';
                             recordResult(linkRelObject);
@@ -1233,10 +1232,28 @@ const  testLinksInLinkset = async (dl, ls) =>
       //   "hreflang": ["en", "fr"]                                         <-- And this is the other
       // }
 
-      let defLinkMultiCheck = Object.create(resultProps);
-      // if (defLinkMultiCheck.hasOwnProperty('id')) continue;
+//      let defLinkMultiCheck = Object.create(resultProps);
+
+      let defLinkMultiCheck = {
+                    "id": "", //An id for the test
+                    "test": "", // conformance statement from spec
+                    "status": "fail", // (pass|fail|warn), default is fail
+                    "msg": "", // Displayed to the end user
+                    "url": "", // The URL we're going to fetch
+                    "headers": {}  // Ready for any headers we want to set
+                }
+
+// I do not know why creating the object like this works but if I use Object.create(resultProps)
+// the Accept-Language header is always the last value it finds so the routine doesn't work.
+// See https://twitter.com/philarcher1/status/1395432916105244678
+
+//      if (defLinkMultiCheck.hasOwnProperty('id')) continue;
+// That previous line was an attempt to make the create method work but it failed. Now with the long hand version it's not necessary (and actually stops it working)
+
+
       defLinkMultiCheck.id = `defLinkMulti${defLinkMultiCount++}`;
-      defLinkMultiCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+//      defLinkMultiCheck.test = 'Resolvers SHALL redirect to the default link unless there is information in the request that can be matched against available link metadata to provide a better response.';
+      defLinkMultiCheck.test = "A set of 'default links' that may be differentiated by information in the HTTP request headers sent to a resolver to enable a better match than the single default link.";
       let u = stripQuery(dl);
       defLinkMultiCheck.msg = `Request to ${u} `;
       if ((typeof dlElement.type === 'string') && (dlElement.type !== ''))
@@ -1247,6 +1264,8 @@ const  testLinksInLinkset = async (dl, ls) =>
       if (Array.isArray(dlElement.hreflang))
       { // We have a language. We have already checked that if there is a language, it's in an array and is of the right format, so we can use it confidently
         defLinkMultiCheck.headers['Accept-language'] = dlElement.hreflang[0];
+        // console.log(`Accept lang is ${defLinkMultiCheck.headers['Accept-language']} for ${defLinkMultiCheck.id}`);
+
         if (defLinkMultiCheck.msg.indexOf('header set to') !== -1)
         { // meaning we have set an Accept header
           defLinkMultiCheck.msg += ' and ';
@@ -1259,6 +1278,9 @@ const  testLinksInLinkset = async (dl, ls) =>
       defLinkMultiCheck.target = dlElement.href;
       defLinkMultiCheck.process = async (data) =>
       {
+
+//      console.log(`Testing ${data.result.location} against ${dlElement.href}, while Accept lang is ${defLinkMultiCheck.headers['Accept-language']} and id is ${defLinkMultiCheck.id}`);
+
         if (data.result.location === dlElement.href)
         {  // There is a redirection to the correct link
           defLinkMultiCheck.status = 'pass';
