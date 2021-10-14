@@ -29,7 +29,7 @@ const plausibleDlURI = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?
 // And this is 'RE2' ('RE3' that attempts to look for a compressed DL URI is not used in the test suite).
 const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(((\/(01|8006|8013|8010|414|417|8017|8018|255|00|253|401|402|8003|8004)\/)(\d{4}[^\/]+)(\/[^/]+\/[^/]+)?[/]?(\?([^?\n]*))?(#([^\n]*))?))/;
 
-const linkTypeListSource = 'https://gs1.github.io/WebVoc/gs1Voc_v1_3.jsonld';
+const linkTypeListSource = 'https://gs1.github.io/WebVoc/current.jsonld';
 
 // Global variables
 let testList = [];
@@ -554,6 +554,7 @@ const  compressionChecks = (dl, domain, gs1dlt) =>
     // Unlike the header-based tests, we preserve the query string for this test
     // console.log('Uncompressed url is ' + perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(dl));
     validDecompressCheck.url = perlTests + '?test=getAllHeaders&testVal=' + encodeURIComponent(dl);
+    console.log(validDecompressCheck.url);
     validDecompressCheck.process = async (data) =>
     {
         try
@@ -577,6 +578,8 @@ const  compressionChecks = (dl, domain, gs1dlt) =>
             }
             // Now we're looking for the uncompressed version in the link header
             let numericDL = numericOnly(dl);
+            console.log(`Looking for a numericDL of ${numericDL} in ${compressedJSON.result.link}`);
+
             if (compressedJSON.result.link.indexOf(numericDL) > -1)
             {   // It's in there, now we have to check for presence of owl:sameAs @rel
                 let allLinks = compressedJSON.result.link.split(',');
@@ -875,7 +878,7 @@ const testLinkset = (dl) =>
                             });
                         }
                     }
-
+                    // console.log(GS1LinkTypes);
                     let count = 0;
                     let defaultLinkOK = false;
                     let defaultLinkObject = Object.create(resultProps);
