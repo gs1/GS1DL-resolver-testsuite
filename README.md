@@ -16,7 +16,7 @@ The test suite is written as a JavaScript function that takes a GS1 Digital Link
  
 The test suite creates both of these and inserts them into your page as child elements of an element carrying an `id` of `gs1ResolverTests`. This is defined as a constant in the JavaScript file so that it can be changed if you wish.
  
-As well as the [GS1 Digital Link Toolkit](https://github.com/gs1/GS1DigitalLinkToolkit.js), the script makes use of a set of functions in a [helper PHP file]([url](https://github.com/gs1/GS1DL-resolver-testsuite/blob/master/tester.php)). THis is because it is easier to control HTTP requests using PHP and Curl than JavaScript's fetch. The PHP script returns an Object that contains the results of the HTTP HEAD request, which is then processed in the JavaScript.
+As well as the [GS1 Digital Link Toolkit](https://github.com/gs1/GS1DigitalLinkToolkit.js), the script makes use of a set of functions in a [helper PHP file](https://github.com/gs1/GS1DL-resolver-testsuite/blob/master/tester.php). THis is because it is easier to control HTTP requests using PHP and Curl than JavaScript's fetch. The PHP script returns an Object that contains the results of the HTTP HEAD request, which is then processed in the JavaScript.
 
 Contributions welcome, noting the license under which the code is made available.
 
