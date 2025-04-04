@@ -2,27 +2,67 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
     <title>GS1 Digital Link Resolver Test Suite</title>
-    <script src="GS1DigitalLinkToolkit.js"></script>
-    <script src="GS1DigitalLinkResolverTestSuite.js"></script>
-    <link rel="stylesheet" href="GS1DigitalLinkResolverTestSuiteStyles.css"/>
-    <style type="text/css">
+    <script src="https://ref.gs1.org/test-suites/resolver/1.0.0/public/ajv7.min.js"></script>
+    <script src="https://ref.gs1.org/test-suites/resolver/1.0.0/public/GS1DigitalLinkToolkit.js"></script>
+    <script src="https://ref.gs1.org/test-suites/resolver/1.0.0/public/GS1DigitalLinkResolverTestSuite.js"></script>
+    <link href="https://ref.gs1.org/test-suites/resolver/1.0.0/public/GS1DigitalLinkResolverTestSuiteStyles.css" rel="stylesheet">
+    <link href="https://ref.gs1.org/styles/base.css" rel="stylesheet">
+    <link href="https://ref.gs1.org/styles/gsmp-styles.css" rel="stylesheet">
+    <style>
         #dlEgInput
         {
-            margin : 1em;
+            margin : 1em 0;
+            width:400px;
+            max-width:100%;
+        }
+        #loadDemo {
+            cursor: pointer;
+            text-decoration: underline;
+            color: var(--gs1-color-link-accessible);
         }
     </style>
 </head>
 <body>
-
-<header id="corporateHead"><h1>GS1 Digital Link Test Suite</h1>
-    <p>Conformance tests <a href="Conformance.txt">GS1 Digital Link version 1.1</a>.</p>
-</header>
+    <header>
+        <div id="corporateHead">
+            <a href="/"><img src="https://ref.gs1.org/logos/gs1logo.png" alt="GS1 logo" id="logo"></a>
+            <p id="headerTitle">ref.gs1.org</p>
+            <p id="strapline">The Global Language of Business</p>
+        </div>
+        <div id="headerBlock">
+            <!--<p id="versionDetail">Version 1.0.0, April 2025</p>-->
+            <h1 id="title">GS1 Digital Link Test Suite</h1>
+            <p id="docDescription">Test suite for the GS1-Conformant resolver standard <a href="https://ref.gs1.org/standards/resolver/1.1.0/">version 1.1.0</a></p>
+            <!--<div id="docVersions">
+                <a id="latestVersion" href="/test-suites/resolver/">Latest version</a> 
+                <a id="thisVersion" href="/test-suites/resolver/1.0.0/">This version</a> 
+                <a id="thisArchive" href="/test-suites/resolver/archive">Archive</a>
+            </div>-->
+        </div>
+        <p id="legal">Ⓒ 2025 GS1 AISBL <a href="https://ref.gs1.org/gs1/standards-disclaimer/">Disclaimer</a></p>
+    </header>
+    
 <main>
-    <img alt="rotating circle showing tests are running" id="rotatingcircle" src="rotatingcircle.gif" height="40" style="visibility: hidden">
-    <!-- You need an element (any kind of element) in your page with an id that is used by the test suite. If you use a different id, you'll need to update the const in the JS library accordingly -->
-    <section id="gs1ResolverTests"></section>
-    <p style="clear:both">Please report any bugs in this test suite by raising an issue in its <a href="https://github.com/gs1/GS1DL-resolver-testsuite">GitHub repository</a>.</p>
+    <img alt="rotating circle showing tests are running" id="rotatingcircle" src="https://ref.gs1.org/test-suites/resolver/1.0.0/public/rotatingcircle.gif" height="40" style="visibility: hidden">
+
+    <div id="inputDiv">
+        <label id="dlTestSuiteTextInput" for="dlEgInput">
+            Digital Link URI in your resolver [<span id="loadDemo">Demo</span>]:
+            <input id="dlEgInput" class="dlTestSuiteTextInput">
+        </label>
+        <button id="submitButton">Begin test</button>
+    </div>
+
+    <section id="gs1ResolverTests"></section> <!-- Results are written into this element-->
+    <p style="clear:both">This tool is still <abbr title="work in progress">WIP</abbr>. It needs further testing and refinement to make sure that all its results are accurate and fair. However, there is sufficient confidence in the existing code to offer this for general use as a beta release. Please report any bugs in this test suite by raising an issue in its <a href="https://github.com/gs1/GS1DL-resolver-testsuite">GitHub repository</a> where there is a copy of the JavaScript code and PHP helper functions.</p>
+    <p>To do list includes:</p>
+    <ul>
+        <li>testing of multiple links for the same link type;</li>
+        <li>checking for presence of link to JSON-LD context file, with all correct attributes, in the HTTP response Link header when retrieving the link set;</li>
+        <li>highlighting the most critical tests, perhaps developing a traffic light system for overall conformance.</li>
+    </ul>
 </main>
 
 
@@ -33,73 +73,18 @@
 
     function setUpForm()
     {
-        // Set up the form to ask for a GS1 Digital Link
-        let div = document.createElement('div');
-        div.id = 'inputDiv';
-        let p = document.createElement('p');
-        let dlVersionButton = document.createElement('input');
-        dlVersionButton.id = '_1_1';
-        dlVersionButton.type = 'radio';
-        dlVersionButton.name = 'version';
-        dlVersionButton.value = '1.1';
-        let versionLabel = document.createElement('label');
-        versionLabel.htmlFor = '_1_1';
-        let t = document.createTextNode('Test HTTP Link headers');
-        versionLabel.appendChild(t);
-        versionLabel.appendChild(dlVersionButton);
-        p.appendChild(versionLabel);
-
-        dlVersionButton = document.createElement('input');
-        dlVersionButton.id = '_1_2';
-        dlVersionButton.type = 'radio';
-        dlVersionButton.name = 'version';
-        dlVersionButton.value = '1.2';
-        dlVersionButton.checked = true;
-        versionLabel = document.createElement('label');
-        versionLabel.htmlFor = '_1_2';
-        t = document.createTextNode('Test Linkset');
-        versionLabel.appendChild(t);
-        versionLabel.appendChild(dlVersionButton);
-        p.appendChild(versionLabel);
-        div.appendChild(p);
-
-
-        let dlExampleInput = document.createElement('input');
-        dlExampleInput.size = 40;
-        dlExampleInput.id = 'dlEgInput';
-        dlExampleInput.value = 'https://id.gs1.org/01/09506000134369';
-        dlExampleInput.className = 'dlTestSuiteTextInput';
-        let dlExampleInputLabel = document.createElement('label');
-        dlExampleInputLabel.for = dlExampleInput.id;
-        dlExampleInputLabel.className = 'dlTestSuiteTextLabel';
-        t = document.createTextNode('Sample Digital Link URI in your resolver (uncompressed):');
-        dlExampleInputLabel.appendChild(t);
-        dlExampleInputLabel.appendChild(dlExampleInput);
-
-        let submitButton = document.createElement('button');
-        submitButton.id = 'submitButton';
-        submitButton.addEventListener('click', function ()
+        let demoEG = 'https://id.gs1.org/01/09506000164908';
+        let inputBox = document.getElementById('dlEgInput');
+        document.getElementById('loadDemo').addEventListener('click', function()
+        {
+            inputBox.value = demoEG
+        }, false);
+     
+        document.getElementById('submitButton').addEventListener('click', function ()
         {
             rotatingCircle(true);
-            let versionNumber = '';
-            let ele = document.getElementsByName('version');
-            for (let version of ele)
-            {
-                if (version.checked)
-                {
-                    versionNumber = version.value
-                }
-            }
-            testDL(dlExampleInput.value, versionNumber);
+            testDL(dlEgInput.value);
         }, false);
-        t = document.createTextNode('Begin test');
-        submitButton.appendChild(t);
-
-        div.appendChild(dlExampleInputLabel);
-        div.appendChild(submitButton);
-
-        let g = document.getElementById(outputElement);
-        g.appendChild(div);
     }
 
 </script>
