@@ -30,6 +30,7 @@ const linkProps = { // We'll need to test lots of links (from the linkset) so it
 
 // const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
 const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
+//const testUri = 'https://philarcher.org/gs1/tester.php';
 const resolverDescriptionFileSchema = 'https://ref.gs1.org/standards/resolver/description-file-schema';
 
 // const RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
@@ -173,6 +174,7 @@ const testDL = async (dl) =>
         await runTest(testQuery(dl));
         await runTest(linkTypeIslinkset(dl));
         await runTest(linksetHeaderTests(dl));
+        await runTest(linksetJsonldHeaderTest(dl));
         // await resultSummary();
         
     }
@@ -269,7 +271,7 @@ const rdFileCheck = async (domain) =>
             httpVersion.test = 'SHALL support HTTP 1.1 (or higher)';
             httpVersion.status = 'warn';
             httpVersion.msg = 'HTTP version not detected. If other tests passed, it\'s probably OK';
-            httpVersion.url = testUri + '?test=getHTTPversion&testVal=' + encodeURIComponent(domain);
+            httpVersion.url = testUri + '?test=getHTTPversion&testVal=' + encodeURIComponent(`https://${domain}`);
             recordResult(httpVersion);
             httpVersion.process = async (data) =>
             {
@@ -393,6 +395,69 @@ const headerBasedChecks = (dl) =>
     }
     return corsCheck;
 }
+
+const linksetJsonldHeaderTest = (dl) =>
+    {
+        // This routine specifically looks at the HTTP response headers when using 
+        // the Accept: application/linkset+json method to get the linkset
+    
+        let linksetJsonldCheck = Object.create(resultProps);
+        linksetJsonldCheck.id = 'linksetJsonldCheck';
+        linksetJsonldCheck.test = 'When requesting the linkset the HTTP response headers SHOULD include a Link header pointing to a JSON-LD context file';
+        linksetJsonldCheck.msg = 'Link to JSON-LD context file not detected when requesting linkset';
+        linksetJsonldCheck.status = 'warn';
+        recordResult(linksetJsonldCheck);
+    
+        // let linksetContentType = Object.create(resultProps);
+        // linksetContentType.id = 'linksetContentType';
+        // linksetContentType.test = 'When served as application/linkset+json, the HTTP Content Type header should report this';
+        // linksetContentType.msg = 'Linkset not served with application/linkset+json Content Type';
+        // linksetContentType.status = 'warn';
+        // recordResult(linksetContentType);
+
+        let u = stripQueryStringFromURL(dl);
+        linksetJsonldCheck.url = testUri + '?test=getLinksetHeaders&testVal=' + encodeURIComponent(u);
+        linksetJsonldCheck.process = async (data) =>
+        {
+            let linkHeader = '';
+            if (data.result['Link']) {
+                linkHeader = data.result['Link'];
+            } else if (data.result['link']) {
+                linkHeader = data.result['link'];
+            }
+            let allLinks = linkHeader.split(',');
+            for (i in allLinks) {
+                if ((allLinks[i].indexOf('rel="http://www.w3.org/ns/json-ld#context"') !== -1) &&
+                (allLinks[i].indexOf('type="application/ld+json"') !== -1)) {
+                    linksetJsonldCheck.msg = 'Link to JSON-LD context file found';
+                    linksetJsonldCheck.status = 'pass';
+                    recordResult(linksetJsonldCheck);
+                    BREAK
+                }
+            }
+
+            // let contentType = '';
+            // if (data.result['Content-Type']) {
+            //     contentType = data.result['Content-Type'];
+            // } else if (data.result['content-type']) {
+            //     contentType = data.result['content-type'];
+            // }
+            // if (contentType === 'application/linkset+json') {
+            //     linksetContentType.status = 'pass';
+            //     linksetContentType.msg = 'Linkset served with correct Content-Type header'
+
+            // } else {
+            //     linksetContentType.msg = `When requested as application/likset+json, HTTP Response header declares ${contentType}`;
+            // }
+            // recordResult(linksetContentType);
+
+        }
+        return linksetJsonldCheck;
+    }
+
+    
+
+
 
 const errorCodeChecks = (dl) =>
 {
@@ -572,6 +637,7 @@ const linksetHeaderTests = (dl) =>
                     recordResult(ltAcceptNoRedirect);
                     
                     const decodedString = decodeURIComponent(resultObject.responseBody);
+                    // console.log(`decoded string is ${decodedString}`)
                     const tempObject = JSON.parse(decodedString);
                     const linksetObject = tempFixLinkset(tempObject);
                     let validLinkset = Object.create(resultProps);
@@ -580,18 +646,16 @@ const linksetHeaderTests = (dl) =>
                     validLinkset.msg = 'Linkset does not validate';
                     recordResult(validLinkset);
                     const schemaTestResult = await doesJSONSchemaPass(linksetObject, 'https://gs1.github.io/linkset/gs1-linkset-schema.json');
-                    if (schemaTestResult.testResult)
-                        {
-                            validLinkset.msg = 'Linkset validates against the published schema';
-                            validLinkset.status = 'pass';
-                            recordResult(validLinkset);
-                            linksetTests(dl, linksetObject);
-                        } 
-            
-                 }
+                    if (schemaTestResult.testResult) 
+                    {
+                        validLinkset.msg = 'Linkset validates against the published schema';
+                        validLinkset.status = 'pass';
+                        recordResult(validLinkset);
+                        await linksetTests(dl, linksetObject);
+                    } 
+                }
             }
         return ltAcceptNoRedirect;
-
     }
     
         // This is a hack around the weird behavious of id.gs1.org where linksets are badly formed

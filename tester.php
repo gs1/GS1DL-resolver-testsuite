@@ -64,6 +64,7 @@ function handleApiRequest(string $queryString): string
 
     if (isset($params['test']))
     {
+        // echo "Here with ".$params['test']." and ".$params['testVal'];
         if ($params['test'] === 'getHTTPversion' && isset($params['testVal']))
         {
             $version = getHttpVersion($params['testVal']);
@@ -75,7 +76,16 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
-            $headersResult = getCustomHeaders(urldecode($params['testVal']));
+            $headersResult = getCustomHeaders($params['testVal'], false);
+            $resultObj = [
+                "test" => $params['test'],
+                "testVal" => $params['testVal'],
+                "result" => $headersResult
+            ];
+        }
+        elseif ($params['test'] === 'getLinksetHeaders' && isset($params['testVal']))
+        {
+            $headersResult = getCustomHeaders($params['testVal'], true);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -84,7 +94,8 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getLinkset' && isset($params['testVal']))
         {
-            $linksetResult = trim(getLinkset(urldecode($params['testVal'])), '"');
+            //$linksetResult = trim(getLinkset(urldecode($params['testVal'])), '"');
+            $linksetResult = trim(getLinkset($params['testVal']), '"');
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -98,7 +109,7 @@ function handleApiRequest(string $queryString): string
     }
     else
     {
-        $resultObj = ["error" => "No command received"];
+        $resultObj = ["error" => "No valid command received"];
     }
 
     return json_encode($resultObj);
@@ -108,15 +119,24 @@ function handleApiRequest(string $queryString): string
 function parseQuery(string $query): array
 {
     parse_str($query, $result);
-    return array_map('urldecode', $result);
+    // echo "Incoming testVal is ".$result['testVal'];
+    // Security check to make sure we're only handling https query
+    // Note that the PHP function parse_str url decodes the received data
+    if (!str_starts_with($result['testVal'], 'https://'))
+    {
+        $result['testVal'] = null;
+    }
+    //echo "Here with ".$result['testVal']." and then...";
+
+    // return array_map('urldecode', $result);
+    return $result;
 }
 
 // Function to retrieve HTTP version
-function getHttpVersion(string $domain): string
+function getHttpVersion(string $url): string
 {
     try
     {
-        $url = "https://$domain";
         $headers = get_headers($url, 1); // Perform a HEAD request
         if ($headers === false)
         {
@@ -143,7 +163,7 @@ function getHttpVersion(string $domain): string
 }
 
 // Function to retrieve all headers
-function getCustomHeaders(string $uri): array
+function getCustomHeaders(string $uri, $setForLinkset): array
 {
     try {
         // Initialize cURL
@@ -156,6 +176,12 @@ function getCustomHeaders(string $uri): array
         curl_setopt($ch, CURLOPT_NOBODY, false); // Fetch the entire response (headers + body)
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Follow redirects (handle 302 responses)
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
+
+        if ($setForLinkset) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Accept: application/linkset+json" // Set the Accept header
+            ]);
+        }
 
         // Execute the request
         $response = curl_exec($ch);
@@ -204,7 +230,7 @@ function getLinkset(string $uri): string
         // Set cURL options
         curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response body as a string
-        curl_setopt($ch, CURLOPT_HEADER, false); // Exclude raw headers from the response
+        curl_setopt($ch, CURLOPT_HEADER, false); // Exclude raw headers in the response
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             "Accept: application/linkset+json" // Set the Accept header
         ]);
