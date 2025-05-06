@@ -177,11 +177,17 @@ function getCustomHeaders(string $uri, $setForLinkset): array
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Follow redirects (handle 302 responses)
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
 
+        // Setup cURL HTTP Request Headers
+        $headers = [
+            "Origin: https://ref.gs1.org/test-suites/resolver/"
+        ];
+        
         if ($setForLinkset) {
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "Accept: application/linkset+json" // Set the Accept header
-            ]);
+            $headers[] = "Accept: application/linkset+json";
         }
+        
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
 
         // Execute the request
         $response = curl_exec($ch);
