@@ -1,5 +1,5 @@
 # GS1DL-resolver-testsuite
-This is the repository for the code behind the Resolver test suite, hosted at https://ref.gs1.org/test-suites/resolver/. It can be used to assess whether a resolver conforms to the GS1 Digital Link standard and is provided to encourage such conformance. The [resolver standard]([url](https://ref.gs1.org/standards/resolver/)) has several quirks that, sadly, can trip up the unwary.
+This is the repository for the code behind the Resolver test suite, hosted at https://ref.gs1.org/test-suites/resolver/. It can be used to assess whether a resolver conforms to the GS1 Digital Link standard and is provided to encourage such conformance. The [resolver standard](https://ref.gs1.org/standards/resolver/) has several quirks that, sadly, can trip up the unwary.
  
 The test suite is written as a JavaScript function that takes a GS1 Digital Link URI as input.  
  
