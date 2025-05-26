@@ -76,7 +76,7 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
-            $headersResult = getCustomHeaders($params['testVal'], false);
+            $headersResult = getCustomHeaders($params['testVal'], false, $params['mediaType'], $params['lang']);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -85,7 +85,7 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getLinksetHeaders' && isset($params['testVal']))
         {
-            $headersResult = getCustomHeaders($params['testVal'], true);
+            $headersResult = getCustomHeaders($params['testVal'], true, '','');
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -163,11 +163,15 @@ function getHttpVersion(string $url): string
 }
 
 // Function to retrieve all headers
-function getCustomHeaders(string $uri, $setForLinkset): array
+// Note that the context param is in the URL query string and does not need translating into an
+// Accept Header
+function getCustomHeaders(string $uri, $setForLinkset, $mediaType, $lang): array
 {
     try {
         // Initialize cURL
         $ch = curl_init();
+
+
 
         // Set cURL options
         curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
@@ -176,19 +180,22 @@ function getCustomHeaders(string $uri, $setForLinkset): array
         curl_setopt($ch, CURLOPT_NOBODY, false); // Fetch the entire response (headers + body)
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Follow redirects (handle 302 responses)
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
-
         // Setup cURL HTTP Request Headers
-        $headers = [
-            "Origin: https://ref.gs1.org/test-suites/resolver/"
-        ];
+        $reqHeaders = ["Origin: https://ref.gs1.org/test-suites/resolver/"];
         
         if ($setForLinkset) {
-            $headers[] = "Accept: application/linkset+json";
+            array_push($reqHeaders, "Accept: application/linkset+json"); // Set the Accept header
+        }  else {
+            if (isset($mediaType)) {
+                array_push($reqHeaders, "Accept: $mediaType");
+            }
+            if (isset($lang)) {
+                array_push($reqHeaders, "Accept-Language: $lang");
+            }
         }
-        
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
+            
         // Execute the request
         $response = curl_exec($ch);
 
@@ -220,7 +227,7 @@ function getCustomHeaders(string $uri, $setForLinkset): array
         ];
 
         // Merge response headers into the result
-        return array_merge($result, $headers);
+        return array_merge($result, $headers, $reqHeaders);
     } catch (Exception $e) {
         return ["error" => $e->getMessage()];
     }
