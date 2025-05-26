@@ -30,7 +30,7 @@ const linkProps = { // We'll need to test lots of links (from the linkset) so it
 
 // const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
 const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
-//const testUri = 'https://philarcher.org/gs1/tester.php';
+
 const resolverDescriptionFileSchema = 'https://ref.gs1.org/standards/resolver/description-file-schema';
 
 // const RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
@@ -47,7 +47,6 @@ const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#
 const linkTypeListSource = 'https://ref.gs1.org/voc/data/linktypes';
 
 // Global variables
-let testList = [];
 let resultsArray = [];
 let gs1dlt = new GS1DigitalLinkToolkit(); // We'll make a lot of use of the GS1 Digital Link toolkit
 
@@ -175,7 +174,7 @@ const testDL = async (dl) =>
         await runTest(linkTypeIslinkset(dl));
         await runTest(linksetHeaderTests(dl));
         await runTest(linksetJsonldHeaderTest(dl));
-        // await resultSummary();
+        await resultSummary();
         
     }
     rotatingCircle(false);
@@ -639,7 +638,15 @@ const linksetHeaderTests = (dl) =>
                     const decodedString = decodeURIComponent(resultObject.responseBody);
                     // console.log(`decoded string is ${decodedString}`)
                     const tempObject = JSON.parse(decodedString);
+
+                    // Development linkset is inserted here. In prod mode, we use the 
+                    // received linkset
+                    // const linksetObject = modelLinkset;
+                    // console.log(`using the model linkset`);
                     const linksetObject = tempFixLinkset(tempObject);
+
+
+
                     let validLinkset = Object.create(resultProps);
                     validLinkset.id = 'validLinkset';
                     validLinkset.test = 'Linkset must be valid according to published JSON schema';
@@ -658,7 +665,7 @@ const linksetHeaderTests = (dl) =>
         return ltAcceptNoRedirect;
     }
     
-        // This is a hack around the weird behavious of id.gs1.org where linksets are badly formed
+        // This is a temporary hack around the weird behavious of id.gs1.org where linksets are badly formed
         // 
     const tempFixLinkset = (linksetObject) => {
         if (Array.isArray(linksetObject.linkset)) {
@@ -808,25 +815,47 @@ const testQuery = (dl) =>
 const linksetTests = async (dl, linksetObject) => {
     // Need to handle the 3 namespaces that can be used for GS1 link types
     // Reduce them all to 'gs1:'
+    // We'll stringify the linkset, do a search and replace, and re-parse it.
     let linksetObjectString = JSON.stringify(linksetObject);
     const re = /https:\/\/((ref\.)|(www\.))?gs1\.org\/voc\//gi;
     linksetObjectString = linksetObjectString.replace(re, 'gs1:');
     //console.log(linksetObjectString);
     const modifiedLinksetObject = JSON.parse(linksetObjectString);
+    // Remember that a linkset takes an array of objects, one per anchor
+    // We'll call those 'anchorLinksets' as the anchor is the distinguishing feature
+    // of each object within the array
+    // Also bear in mind that 'walking up the tree' complicates things further
+    // wrt the default link. 
 
-    // We'll work through the array of objects under linkset
+
+
+
+
+
     for (i in modifiedLinksetObject.linkset) {
-        const linkset = modifiedLinksetObject.linkset[i];
-        // Let's go through and find all the link types in use
+        const anchorLinkset = modifiedLinksetObject.linkset[i];
+        // Let's go through and find all the link types in use for this anchor
         let linkTypesInUse = [];
-        for (l in linkset) {
+        for (l in anchorLinkset) {
             if ((l !== 'anchor') && (l !== 'itemDescription')) {
+                // console.log(`recording ${l}`)
                 linkTypesInUse.push(l);
             }
         }
 
-        // So now we have all our link types in the linkset as gs1:{linkType}
-        // We know there should be a default link so we can set that rest object up outside
+        // So now we have all our link types in the linkset for this anchor as gs1:{linkType}
+
+        // We'll just check that all the GS1 link types in use, are defined in the Web Voc
+
+        let linkTypesDefined = Object.create(resultProps);
+        linkTypesDefined.id = 'linkTypesDefined';
+        linkTypesDefined.test = 'Link types SHOULD be given as a URI defined in the GS1 Web vocabulary';
+        linkTypesDefined.status = 'warn';
+        linkTypesDefined.msg = 'Link type detected that claims to be defined in the GS1 Web Vocabulary but is not';
+        recordResult(linkTypesDefined);
+        await checkGS1LinkTypes(linkTypesDefined, linkTypesInUse);
+
+        // We know there should be a default link so we can set that object up outside
         // of the loop
 
         let defaultLinkExists = Object.create(resultProps);
@@ -835,9 +864,13 @@ const linksetTests = async (dl, linksetObject) => {
         defaultLinkExists.msg = 'No default link found';
         recordResult(defaultLinkExists);
 
+        // Now we'll work our way through the set for this anchor
+
         for (lt in linkTypesInUse) {
             const linkType = linkTypesInUse[lt]
-            //console.log(`linkType is ${linkType}`)
+            // The default link is a special case
+            // More work needed as default might be higher up the tree
+            // Parking lot 2025-05-24
             if (linkType === 'gs1:defaultLink') {
                 defaultLinkExists.msg = 'Default link found';
                 defaultLinkExists.status = 'pass';
@@ -846,43 +879,133 @@ const linksetTests = async (dl, linksetObject) => {
                 let singleDefaulLink = Object.create(resultProps);
                 singleDefaulLink.id = 'singleDefaulLink';
                 singleDefaulLink.test = 'For each identified entity there SHALL be exactly one default link, the list of link types for which SHALL include gs1:defaultLink. This default is defined without any of the optional attributes, that is, it SHALL include a title, but SHALL NOT include other attributes.';
-                if (linkset[linkType].length === 1) {
+                if (anchorLinkset[linkType].length === 1) {
                     singleDefaulLink.status='pass';
                     singleDefaulLink.msg = 'Single default link found'
-                } else if (linkset[linkType].length !== 1){
+                } else if (anchorLinkset[linkType].length !== 1){
                     singleDefaulLink.msg = 'Multiple (or zero) default links found'
                 }
                 recordResult(singleDefaulLink);
                 // console.log(`The default targetURL is ${linkset[linkType][0].href}`);
                 // And we should be redirected to its href with a simple query
-                if ((singleDefaulLink.status ==='pass') && (linkset[linkType][0].href)) {
-                   await runTest(testDefaultLink(dl, linkset[linkType][0].href));
+                if ((singleDefaulLink.status ==='pass') && (anchorLinkset[linkType][0].href)) {
+                   await runTest(testDefaultLink(dl, anchorLinkset[linkType][0].href));
                 }
-            }
+            } else if (anchorLinkset[linkType].length === 1) {
+                // There is a single possible redirect for this link type, nothing else matters 
+                // at this point so we're looking for a simplre redirect
+                // console.log(`Link type of ${linkType} has 1 link`)
+                await runTest(testSingleLinkObject(dl, linkType, anchorLinkset[linkType][0].href));
+            } else if (anchorLinkset[linkType].length > 1) {
+                // Here we have more than one link object for a given link type
+                // We take into consideration the type and hreflang attributes
+                // The context attribute is optional and its value space undefined in
+                // the standard, therefore we cannot use it formally in these tests
+                // However, we do need to look at it because a resolver may use it in
+                // any way it wants and so we can't expect a 300 response for link objects
+                // where the context is different, even though we're not testing it directly
 
-            // Everything else is more complicated
-            // Can have arbitrary number of links per link type
-            // If combo of hreflang, type and context is unique, need to create relevant request
-            // And check result
-            // If combo is not unique, need to test that response is a 300
-            
-            else {
-                //console.log(`Looking at ${linkType}`)
-                for (linkObject in linkset[linkType]) {
-                    if (linkset[linkType].length === 1) {
-                        // For now, only handling single link per link type
-                        // Handling multiple link objects for a single link type will
-                        // require adding significant complexity that right now (2025-03-27) 
-                        // I don't have time to add :-( 
-                        await runTest(testSingleLinkObject(dl, linkType, linkset[linkType][0].href));
+                // Set up an array for this link type that stores the array position
+                // of link objects with identical attributes
+                let threehundredLinks = [];
+                
+                for (linkObject in anchorLinkset[linkType]) {
+                    // console.log(`Here for link ${linkObject} of ${linkType} which has ${anchorLinkset[linkType].length} links`)
+                    // Start with the first one and put its attributes in a mini object
+                    // j is the one for which we're looking for any exact matches (k)
+
+                    for (let j = 0; j < anchorLinkset[linkType].length; j++) {
+                        if (!threehundredLinks.includes(j)) {
+                            // If we haven't already got this in our list of 300s
+                            const lo1 = {};
+                            if (anchorLinkset[linkType][j].type) {lo1.type = anchorLinkset[linkType][j].type}
+                            if (anchorLinkset[linkType][j].hreflang) {lo1.hreflang = anchorLinkset[linkType][j].hreflang}
+                            if (anchorLinkset[linkType][j].context) {lo1.context = anchorLinkset[linkType][j].context}
+
+                            // Now we look through the other link objects, noting exact matches
+                            // If we find one, we record the two under test in the threehundredLinks array
+
+                            for (let k = 0; k < anchorLinkset[linkType].length; k++) {
+                                if ((j !== k) && (!threehundredLinks.includes(k))) {
+                                    const lo2 = {};
+                                    if (anchorLinkset[linkType][k].type) {lo2.type = anchorLinkset[linkType][k].type}
+                                    if (anchorLinkset[linkType][k].hreflang) {lo2.hreflang = anchorLinkset[linkType][k].hreflang}
+                                    if (anchorLinkset[linkType][k].context) {lo2.context = anchorLinkset[linkType][k].context}
+                                    if (identicalAttributes(lo1, lo2)) {
+                                        if (!threehundredLinks.includes(j)) {threehundredLinks.push(j)}
+                                        if (!threehundredLinks.includes(k)) {threehundredLinks.push(k)}
+                                    }
+                                    
+                                }
+                            }
+                        }
                     }
                 }
+                // console.log(`For ${linkType} Check any of these to get a 300 ${threehundredLinks}`)
+                // console.log(`For ${linkType} Check all that are not in ${threehundredLinks} individually`)
+                await testMultipleLinks(dl, linkType, anchorLinkset[linkType], threehundredLinks);
             }
         }
     }
     return;
-
 }
+
+const checkGS1LinkTypes = async (linkTypesDefined, linkTypesInUse) => {
+    // Fetch the current list of link types
+    const fetchRatifiedLinkTypes = async () => {
+        try {
+            const response = await fetch('https://ref.gs1.org/voc/data/linktypes', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ratified link type list: ${response.statusText}`);
+            }
+
+            const list = await response.json();
+
+            return list;
+        } catch (error) {
+            console.error('Error fetching list:', error.message);
+            throw new Error('Unable to fetch list');
+        }
+    };
+
+    // Fetch the list
+    let list;
+    try
+    {
+        list = await fetchRatifiedLinkTypes();
+    }
+    catch (error)
+    {
+        return {
+            testResult: false,
+            errors: [error.message]
+        };
+    }
+    // Set overall result to pass
+    linkTypesDefined.status = 'pass';
+    linkTypesDefined.msg = 'All GS1 link types found are in the current ratified set';
+    
+    // Now look for any that aren't in the list and reset back to warn if needs be
+    for (lt in linkTypesInUse) {
+        if (linkTypesInUse[lt].indexOf('gs1:') === 0) {
+            // We're only looking at GS1 link types
+            linkTypeName = linkTypesInUse[lt].substring(4);
+            if (list[linkTypeName] === undefined) {
+                linkTypesDefined.status = 'warn';
+                linkTypesDefined.msg = `gs1:${linkTypeName} is not a ratified GS1 link type`;
+            }
+        }
+    }
+    recordResult(linkTypesDefined);
+    return linkTypesDefined.status;
+}
+
 
 const testDefaultLink = (dl, targetURL) => {
     let defaultTarget = Object.create(resultProps);
@@ -932,16 +1055,162 @@ const testSingleLinkObject = (dl, linkType, targetURL) => {
     return loObject 
 }
 
-const resultSummary = async () => {
-    console.log(`Calling result Summary`);
-    let rdfReport = document.getElementById('rdFile');
-    let linksetReport = document.getElementById('validLinkset');
-    if ((rdfReport.className.indexOf('pass') === -1) && (linksetReport.className.indexOf('pass') === -1)) {
-        let p = document.createElement('p');
-        p.appendChild(document.createTextNode('Really bad'));
-        outputElement.prepend(p)
+const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredLinks) => {
+    let done300 = false;
+    // console.log(`Looking at ${linkType} with its ${arrayOfLinkObjects.length} LOs, noting the 300s ${threehundredLinks}.`)
+    for (lo in arrayOfLinkObjects) {
+        let lang = ''; let context = ''; let mediaType = '';
+        let loObject = Object.create(resultProps);
+        loObject.id = 'loFor' + linkType.replace(':','') + lo;
+        if ((threehundredLinks.includes(parseInt(lo))) && (done300)) {
+            // console.log(`Done`)
+            continue
+        } else if (threehundredLinks.includes(parseInt(lo))) {
+            // console.log(`Our link object ${lo} is in the 300Links array`)
+            // We'll only test one of the links in the threehundredLinks array.
+            // We'll assume that if the resolver returns a 300 for one, it will do so for all
+            loObject.test = 'Where it is impossible to determine which of multiple links of the same link type is the best match, the resolver should return the list of the available links of that type with an HTTP response code of 300 Multiple Choices.';
+            loObject.msg = `A request for which the linkset contains multiple links for ${linkType} with the following identical attributes did not return a 300 response: `;
+            loObject.status = 'warn';
+            loObject.process = async (data) =>
+            {
+                if (data.result['httpCode'] === 300) {
+                    loObject.status = 'pass';
+                    loObject.msg = 'Resolver returned a 300 result when queried for a link for which it has multiple possible responses.';
+                    recordResult(loObject);
+                }
+            }
+            done300 = true;
+        } else {
+            // console.log(`Our link object ${lo} is not in the 300Links array`)
+            // So now we're looking for a redirect, not a 300
+            loObject.test = 'If the requested type of link is available, the resolver SHALL redirect to it';
+            loObject.msg = `Requesting linkType of ${linkType} with the following parameters did not redirect to ${arrayOfLinkObjects[lo].href}`;
+            loObject.process = async (data) =>
+            {
+                // Need to handle 'location' and 'Location'
+                // Need to handle linkType in the target location query string whether on its own or added to existng query
+                let targetLocation = data.result.Location;
+                if (!targetLocation) {targetLocation = data.result.location}
+                if (targetLocation.indexOf('?linkType='+linkType) !== -1) {
+                    targetLocation = stripQueryStringFromURL(targetLocation)
+                } else if (targetLocation.indexOf('&linkType='+linkType) !== -1) {
+                    targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
+                }
+                // Now we can do the comparison
+                if (arrayOfLinkObjects[lo].href === targetLocation) {
+                    loObject.status = 'pass';
+                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                }
+                recordResult(loObject);
+            } 
+        }
+        // In all cases, we need to construct the request with all the relevant parameters
+        if (arrayOfLinkObjects[lo].type !== null) {
+            loObject.msg += ` type: ${arrayOfLinkObjects[lo].type}`;
+            mediaType= `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
+        }
+        if (Array.isArray(arrayOfLinkObjects[lo].hreflang)) {
+            loObject.msg += ` hreflang: ${arrayOfLinkObjects[lo].hreflang[0]}`;
+            lang = `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
+        }
+        if ((arrayOfLinkObjects[lo].context !== undefined) && (Array.isArray(arrayOfLinkObjects[lo].context))) {
+            // console.log(`here with array`)
+            loObject.msg += ` context: ${arrayOfLinkObjects[lo].context[0]}`;
+            context = `&context=${arrayOfLinkObjects[lo].context[0]}`;
+        } else if (arrayOfLinkObjects[lo].context !== undefined) {
+            // console.log(`here with something else and ${arrayOfLinkObjects[lo].context}`)
+            loObject.msg += ` context: ${arrayOfLinkObjects[lo].context}`
+            context = `&context=${arrayOfLinkObjects[lo].context}`;
+        }
+        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + '?linkType=' + linkType + lang + mediaType + context);
+        // console.log(`fetching ${loObject.url}`)
+        recordResult(loObject);
+        await runTest(loObject);
     }
 }
+
+const identicalAttributes = (lo1, lo2) => {
+    let typeMatch = false; let hreflangMatch = false; let contextMatch = false;
+    if ((!lo1.type) && (!lo2.type)) {
+        // Both are undefined
+        typeMatch = true;
+    } else if (((lo1.type) && (lo2.type)) && ((lo1.type === lo2.type))) {
+        // Both are defined and are the same
+        typeMatch = true
+    } // In any other circumstance, there must be a difference.
+    // Repeat for hreflang
+    if ((!lo1.hreflang) && (!lo2.hreflang)) {
+        //Both are undefined
+        hreflangMatch = true;
+    } else if (((lo1.hreflang) && (lo2.hreflang)) && (lo1.hreflang.every((val, idx) => val === lo2.hreflang[idx]))) {
+        // Both are defined and the arrays of hreflangs are equivalent
+        hreflangMatch = true
+    }
+    // Repeat for context, but it could be a string or an array 
+    // (could conceiveably be an object but thats getting over-complicated so we'll ignore that possibility)
+    if ((!lo1.context) && (!lo2.context)) {
+        //Both are undefined
+        contextMatch = true;
+    } else if ((lo1.context) && (lo2.context)) {
+        // This has not been tested as of 2025-05-23
+        if (((Array.isArray(lo1.context)) && (Array.isArray(lo2.context))) && (lo1.context.every((val, idx) => val === lo2.context[idx]))) {
+            contextMatch = true;
+        } else if (lo1.context === lo2.context) {
+            contextMatch = true;
+        }
+    }
+            
+    return (typeMatch && hreflangMatch && contextMatch)
+}
+
+const resultSummary = async () => {
+    // Working with the testArray that was defined as a global variable near the top
+    // Let's start by calculating a simple percentage success
+    let pass = 0; let fail = 0; let rdFileText=''; let invalidLinksetText=''; let criticalFailure = 0;
+    for (i in resultsArray) {
+        if (resultsArray[i].status === 'pass') {pass++}
+        if (resultsArray[i].status === 'fail') {fail++}
+        if (resultsArray[i].id === 'rdFile') {
+            if (resultsArray[i].status !== 'pass') {
+                // critical failure as Resolver Description File is essential
+                rdFileText = `GS1-Conformant resolvers MUST be declared at /.well-known/gs1resolver so that they can be distinguished from other services`;
+                criticalFailure++;
+            }
+        }
+        if (resultsArray[i].id === 'validLinkset') {
+            if (resultsArray[i].status !== 'pass') {
+                // Critical failure as linkset must be valid
+                invalidLinksetText = `GS1-Conformant resolvers MUST return a valid linkset, formatted as JSON, as defined in RFC 9264`;
+                criticalFailure++;
+            }
+        }
+    }
+    let pc = 100 * pass/(pass+fail)
+    let percentPassed = parseFloat(pc).toFixed(0);
+    let text = `You passed ${percentPassed}% of the tests. `;
+    let p = document.createElement('p');
+    p.id = 'overallReport';
+    if (criticalFailure) {
+        p.className = 'fail'
+        if (criticalFailure === 1) {
+            text += `However, there is at least one critical issue: ${rdFileText}${invalidLinksetText}.`;
+        } else {
+            text += `However, there are critical issues: ${rdFileText} and ${invalidLinksetText}.`;
+        }
+    } else if (pc === 100) {
+        p.className = 'pass'
+    } else if (pc > 60) {
+        p.className = 'lightWarn'
+    } else {
+        p.className = 'warn'
+    }
+    p.appendChild(document.createTextNode(text));
+    document.getElementById(outputElement).prepend(p)
+}
+
+
+
 
 const rotatingCircle = (showFlag) =>
 {
@@ -1008,7 +1277,11 @@ function getDL()
 
 function clearGrid()
 {
-    let e = document.getElementById('resultsGrid');
+    let e = document.getElementById('overallReport');
+    if (e) {
+        e.remove();
+    }
+    e = document.getElementById('resultsGrid');
     if (e)
     {
         e.innerHTML = '';
