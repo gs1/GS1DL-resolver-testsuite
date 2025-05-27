@@ -1,16 +1,13 @@
 {
     "linkset": [
     {
-        "anchor": "https://resolver-st.gs1.org01/09506000164908",
+        "anchor": "https://id.gs1.org01/09506000164908",
         "itemDescription": "Crew neck white t-shirt",
         "https://ref.gs1.org/voc/certificationInfo": [
             {
                 "href": "https://ref.gs1.org/tools/demo/2024retail/certificates",
                 "title": "Certificates",
-                "type": "text/html",
-                "hreflang": [
-                    "en"
-                ]
+                "type": "text/html"
             },
             {
                 "href": "https://www.oeko-tex.com/v/07.BH.52767",
@@ -23,10 +20,12 @@
             {
                 "href": "https://supplier.roadmaptozero.com/flp/certificate/verify/5067/95ac8a1acf238e6ae40d761400687fac",
                 "title": "Roadmap to Zero certificate",
-                "type": "text/html",
-                "hreflang": [
-                    "en"
-                ]
+                "type": "text/html"
+            },
+            {
+                "href": "https://supplier.roadmaptozero.com/flp/certificate/verify/5067/95ac8a1acf238e6ae40d761400687fac",
+                "title": "Roadmap to Zero certificate",
+                "type": "text/html"
             },
             {
                 "href": "https://certificate.example/001",
@@ -83,11 +82,19 @@
         ],
         "https://ref.gs1.org/voc/sustainabilityInfo": [
             {
-                "href": "https://ref.gs1.org/tools/demo/2024retail/sustainability",
+                "href": "https://ref.gs1.org/tools/demo/2024retail/en/sustainability",
                 "title": "Sustainability",
                 "type": "text/html",
                 "hreflang": [
                     "en"
+                ]
+            },
+            {
+                "href": "https://ref.gs1.org/tools/demo/2024retail/fr/sustainability",
+                "title": "Sustainability",
+                "type": "text/html",
+                "hreflang": [
+                    "fr"
                 ]
             }
         ],
@@ -95,10 +102,12 @@
             {
                 "href": "https://ref.gs1.org/tools/demo/2024retail/track-and-trace",
                 "title": "Track and Trace",
-                "type": "text/html",
-                "hreflang": [
-                    "en"
-                ]
+                "type": "text/html"
+            },
+            {
+                "href": "https://ref.gs1.org/tools/demo/2024retail/track-and-trace",
+                "title": "Track and Trace",
+                "type": "text/html"
             }
         ],
         "https://ref.gs1.org/voc/defaultLink": [
