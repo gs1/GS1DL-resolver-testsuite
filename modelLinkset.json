@@ -116,6 +116,17 @@
                 "title": "Menu"
             }
         ]
-    }
+    },
+    {
+        "anchor": "https://id.gs1.org01/09506000164908/21/1234",
+        "itemDescription": "Crew neck white t-shirt, serial number 1234",
+        "https://ref.gs1.org/voc/dpp": [
+            {
+                "href": "https://example.com/dpp/7132mlkG",
+                "title": "DPP",
+                "type": "application/vc"
+            }
+        ]
+    }    
 ]
 }
