@@ -1,7 +1,7 @@
 {
     "linkset": [
     {
-        "anchor": "https://id.gs1.org01/09506000164908",
+        "anchor": "https://id.gs1.org/01/09506000164908",
         "itemDescription": "Crew neck white t-shirt",
         "https://ref.gs1.org/voc/certificationInfo": [
             {
@@ -118,7 +118,7 @@
         ]
     },
     {
-        "anchor": "https://id.gs1.org01/09506000164908/21/1234",
+        "anchor": "https://id.gs1.org/01/09506000164908/21/1234",
         "itemDescription": "Crew neck white t-shirt, serial number 1234",
         "https://ref.gs1.org/voc/dpp": [
             {
