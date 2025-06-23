@@ -848,7 +848,7 @@ const fetchAndValidateTheLinkset = (dl) =>
                         linksetJsonldCheck.msg = 'Link to JSON-LD context file found';
                         linksetJsonldCheck.status = 'pass';
                         recordResult(linksetJsonldCheck);
-                        BREAK
+                        break;
                     }
                 }
                 // Now we can see whether the declared content type is correct
