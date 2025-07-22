@@ -1359,7 +1359,7 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
         let queryString = '?'
         if (linkType !== 'gs1:defaultLinkMulti') {
             // Never ask for defaultLinkMulti explicitly
-            linkTypeToQuery = '?linkType=' + linkType;
+            queryString = '?linkType=' + linkType;
         }
         if (arrayOfLinkObjects[lo].type !== null) {
             loObject.msg += ` type: ${arrayOfLinkObjects[lo].type}`;
