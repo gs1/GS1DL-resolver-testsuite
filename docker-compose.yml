@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  gs1-resolver-testsuite:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    working_dir: /app

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GS1 Digital Link Resolver Test Suite</title>
+    <link rel="stylesheet" href="GS1DigitalLinkResolverTestSuiteStyles.css">
+</head>
+<body>
+    <h1>GS1 Digital Link Resolver Test Suite</h1>
+    <p>Enter a GS1 Digital Link URI to test your resolver:</p>
+    <input type="text" id="uriInput" placeholder="https://example.com/01/12345678901234" style="width: 400px;">
+    <button onclick="runTests()">Run Tests</button>
+    <div id="gs1ResolverTests"></div>
+    
+    <script src="GS1DigitalLinkToolkit.js"></script>
+    <script src="GS1DigitalLinkResolverTestSuite.js"></script>
+    <script>
+        function runTests() {
+            const uri = document.getElementById('uriInput').value;
+            if (uri) {
+                document.getElementById('gs1ResolverTests').innerHTML = '';
+                if (typeof gs1ResolverTestSuite === 'function') {
+                    gs1ResolverTestSuite(uri);
+                }
+            } else {
+                alert('Please enter a URI to test');
+            }
+        }
+    </script>
+</body>
+</html>
