@@ -24,6 +24,7 @@ if (str_ends_with( $requestUri, "/"))
 elseif (isset($queryString) && str_starts_with($queryString, 'test='))
 {
     // Handle API requests only if the query string starts with 'test='
+    header('Content-Type: application/json');
     echo handleApiRequest($queryString);
 }
 else
@@ -76,7 +77,8 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
-            $headersResult = getCustomHeaders($params['testVal'], false, $params['mediaType'], $params['lang']);
+            $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
+            $headersResult = getCustomHeaders($params['testVal'], $setAcceptHeaders, $params['mediaType'], $params['lang']);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -178,7 +180,7 @@ function getCustomHeaders(string $uri, $setForLinkset, $mediaType, $lang): array
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response as a string
         curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in the output
         curl_setopt($ch, CURLOPT_NOBODY, false); // Fetch the entire response (headers + body)
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Follow redirects (handle 302 responses)
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Do not follow redirects
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
         // Setup cURL HTTP Request Headers
         $reqHeaders = ["Origin: https://ref.gs1.org/test-suites/resolver/"];
@@ -243,10 +245,14 @@ function getLinkset(string $uri): string
         // Set cURL options
         curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response body as a string
-        curl_setopt($ch, CURLOPT_HEADER, false); // Exclude raw headers in the response
+        curl_setopt($ch, CURLOPT_HEADER, true); // Include raw headers in the response
+        curl_setopt ($ch, CURLOPT_FOLLOWLOCATION, false); // We should know the correct URL for the linkset without redirecting)
+        // Setup cURL HTTP Request Headers
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Accept: application/linkset+json" // Set the Accept header
+            "Origin: https://ref.gs1.org/test-suites/resolver/", 
+            "Accept: application/linkset+json"
         ]);
+        
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Set a timeout for the request
 
         // Execute the request
@@ -257,6 +263,11 @@ function getLinkset(string $uri): string
             throw new Exception("cURL error: " . curl_error($ch));
         }
 
+        // Extract headers from the response
+        $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE); // Get the size of the headers
+        $headersRaw = substr($response, 0, $headerSize); // Extract raw headers
+        $headers = parseHeadersToArray($headersRaw); // Convert raw headers to an associative array
+        
         // Get HTTP response code
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
@@ -265,14 +276,18 @@ function getLinkset(string $uri): string
 
         // URL-encode the response body
         $encodedResponse = rawurlencode($response);
-
+        
+        
         // Prepare final JSON result
         $result = [
             "uri" => $uri,
             "httpCode" => $httpCode,
-            "responseBody" => $encodedResponse
-        ];
-
+            "httpMsg" => parseHttpStatusMessage($headersRaw),
+            "headers" => $headers,
+            "responseBody" => (substr($encodedResponse, strpos($encodedResponse, "%0D%0A%0D%0A") + 12))
+        ]; 
+        // $result = ["responseBody" => $encodedResponse];
+        
         return json_encode($result); // Return the result as a JSON string
     } catch (Exception $e) {
         // Handle and return errors in JSON format
