@@ -20,9 +20,9 @@ const resultProps = {
 //  the tests we need to run. In those cases, we'll need to use a PHP script that executes the 
 // request and sends the response back as a JSON object. 
 
-// const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
+const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
 // const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
-const testUri = 'https://philarcher.org/gs1/tester.php';
+// const testUri = 'https://philarcher.org/gs1/tester.php';
 
 // We'll make use of two JSON schemas
 const resolverDescriptionFileSchema = 'https://ref.gs1.org/standards/resolver/description-file-schema';
@@ -41,11 +41,9 @@ const plausibleDlURINoAlphas = /^https?:(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#
 // We're going to be checking that link types found are in the ratified list
 const linkTypeListSource = 'https://ref.gs1.org/voc/data/linktypes';
 
-// We will be trying to get the linkset by various methods. We will need to keep a note
-// of the method(s) that work
 
-let linksetGetMethods = {};
 
+const debugMode = false; // Set this to true to use the model linkset
 const modelLinkset = {
     "linkset": [
     {
@@ -183,6 +181,9 @@ const modelLinkset = {
 // Global variables
 let resultsArray = [];
 
+// We will be trying to get the linkset by various methods. We will need to keep a note
+// of the method(s) that work
+let linksetGetMethods = {};
 
 // ***************************************************************************
 // This is the main function that takes a Digital Link URI as input and creates the output.
@@ -281,6 +282,27 @@ const testDL = async (dl) =>
             {
                 validDL.status = 'pass';
                 validDL.msg = 'Given input is a valid GS1 Digital Link URI';
+
+                // Added 2025-09-12
+                // If we have a GTIN, was it supplied as 14 digits?
+                // The Toolkit gives us the 14 digit GTIN as a value of gs1Array.GS1["01"]. 
+                // We should be able to match that against "/01/{gtin}" in the incoming DL
+                
+                if ((gs1Array.GS1["01"] !== undefined)  && (!dl.includes(`/01/${gs1Array.GS1["01"]}`))) {
+                    validDL.status = 'warn';
+                    validDL.msg = 'URL under test plausibly is a GS1 Digital Link URI but is expressing the GTIN in less than 14 digits. As of <a href="https://ref.gs1.org/standards/digital-link/uri-syntax/1.4.0/">version 1.4.0</a>, published June 2023, all GTINs must be expressed as 14 digits.';
+                }
+
+                // While we're here, we'll set the walkUpTheTree variable if the
+                // Primary Key is 01 or 414.
+                if (gs1Array.GS1["01"] !== undefined) {
+                    let url = dl.substring(0,dl.indexOf(gs1Array.GS1["01"]) + 14)
+                    // console.log(`here with testing basic walk up for ${url}`);
+                    await runTest(basicWalkUpTheTree(`${url}/10/KL8G`));
+                } else if (gs1Array.GS1["414"] !== undefined) {
+                    let url = dl.substring(0,dl.indexOf(gs1Array.GS1["414"]) + 13);
+                    await runTest(basicWalkUpTheTree(`${url}/254/KL8G`));
+                }
                 recordResult(validDL);
             }
         }
@@ -290,8 +312,8 @@ const testDL = async (dl) =>
         }
     }
 
-    // If validDL.status is pass, we're good to go.
-    if (validDL.status === 'pass')
+    // If validDL.status is not a fail, we're good to go.
+    if (validDL.status !== 'fail')
     {
         // We'll call a series of functions rather than putting everything here
         // They return an object that normally goes into the async fetch array
@@ -620,6 +642,35 @@ const trailingSlashCheck = (dl) =>
 }
 
 
+const basicWalkUpTheTree = (modifiedDL) =>
+{
+    // This is called if the primary key can have a qualifier: a GTIN with a batch etc. or
+    // a 414 GLN with a 254 extension. We check that the resolver walks up the tree 
+    // and returns a response. We won't worry what that response is at this point. 
+    // Just checking it doesn't give a 404 because the implementation doesn't bother
+    // to walk up the tree.
+    let basicWalkUp = Object.create(resultProps);
+    basicWalkUp.id = 'basicWalkUp';
+    basicWalkUp.test = 'For each supported primary key, a resolver SHALL support all its key qualifiers.';
+    basicWalkUp.msg = 'Resolver does not handle unknown value for a valid key qualifier';
+    recordResult(basicWalkUp);
+    basicWalkUp.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(modifiedDL);
+    // console.log(`Testing ${basicWalkUp.url}`);
+    basicWalkUp.process = async (data) =>
+    {
+        let httpResponseCode = data.result['httpCode']
+        // console.log(`We have a response code of ${data.result['0']}`);
+        if (httpResponseCode !== 404) {
+            basicWalkUp.msg = 'Resolver handles unknown qualifers by walking up the tree';
+            basicWalkUp.status = 'pass';
+        }
+        recordResult(basicWalkUp);
+    }
+    return basicWalkUp;
+}
+
+
+
 // Need to do lots of tests with the linkset
 // Starting with "can I get it?"
 
@@ -798,10 +849,10 @@ const fetchAndValidateTheLinkset = (dl) =>
                 // Need to urldecode the returned linkset
                 const decodedString = decodeURIComponent(resultObject.responseBody);
                 // console.log(`decoded string is ${decodedString}`)
-                let tempObject;
+                let linksetObject;
         
                 try {
-                    tempObject = JSON.parse(decodedString);
+                    linksetObject = JSON.parse(decodedString);
                 }
                 catch (e)
                 {
@@ -809,18 +860,20 @@ const fetchAndValidateTheLinkset = (dl) =>
                 }
 
                 // Development linkset is inserted here. In prod mode, we use the received linkset
-                // linksetObject = modelLinkset;
-                // console.log(`using the model linkset`);
+                if (debugMode) {
+                    linksetObject = modelLinkset;
+                    console.log(`using the model linkset`);
+                }
 
-                const schemaTestResult = await doesJSONSchemaPass(tempObject, gs1LinksetSchema);
+                const schemaTestResult = await doesJSONSchemaPass(linksetObject, gs1LinksetSchema);
                 if (schemaTestResult.testResult) {
                     validLinkset.msg = 'Linkset validates against the published schema';
                     validLinkset.status = 'pass';
                     recordResult(validLinkset);
-                    await linksetTests(dl, tempObject);
+                    await linksetTests(dl, linksetObject);
                 }
 
-                if (tempObject !== undefined) {
+                /* if (tempObject !== undefined) {
                     // work around not quite right linkset implementation in current prod resolver
                     // Seems to have been fixed 2025-06-02 so this hack not used. Good.
                     const linksetObject = tempFixLinkset(tempObject);
@@ -831,14 +884,14 @@ const fetchAndValidateTheLinkset = (dl) =>
                         recordResult(validLinkset);
                         await linksetTests(dl, linksetObject);
                     }
-                }
+                } */
                 // Now back to the headers
-                // First we'll loo for the link to the JSON-LD context file
+                // First we'll look for the link to the JSON-LD context file
                 let linkHeader = '';
                 if (resultObject.headers.link) {
                     linkHeader = resultObject.headers.link;
-                } else if (resultObject.headers.link) {
-                    linkHeader = resultObject.headers.link;
+                } else if (resultObject.headers.Link) {
+                    linkHeader = resultObject.headers.Link;
                 }
                 let allLinks = linkHeader.split(',');
                 for (i in allLinks) {
@@ -875,7 +928,7 @@ const fetchAndValidateTheLinkset = (dl) =>
 // linksets are badly formed. Should be removed when new version of GO resolver
 // goes live in September 2025
 // Now seems unnecessary 2025-06-02
-const tempFixLinkset = (linksetObject) => 
+/* const tempFixLinkset = (linksetObject) => 
     {
         if (Array.isArray(linksetObject.linkset)) {
             return linksetObject;
@@ -893,7 +946,7 @@ const tempFixLinkset = (linksetObject) =>
 
 
     }
-
+ */
 const doesJSONSchemaPass = async (data, schemaUrl) =>
 {
     try
@@ -1029,7 +1082,7 @@ const linksetTests = async (dl, linksetObject) => {
     // one against which we can match our incoming dl, but we may have to
     // chop the end off the dl to find the match
 
-    // First a bit of hosekeeping.
+    // First a bit of housekeeping.
     // We need to handle the 3 namespaces that can be used for GS1 link types
     // Reduce them all to 'gs1:'
     // We'll stringify the linkset, do a search and replace, and re-parse it.
@@ -1039,7 +1092,7 @@ const linksetTests = async (dl, linksetObject) => {
     //console.log(linksetObjectString);
     const workingLinksetObject = JSON.parse(linksetObjectAsString);
 
-    // Now we will work through the linksetObject looking for anchors that
+    // Now we will work through the working linksetObject looking for anchors that
     // match our dl and then, if there are qualifier paths, remove those and look
     // again, i.e. walk up the tree.
     // So if the path is /01/{gtin}/10/{serial} we'll look for an anchor that matches
@@ -1307,7 +1360,7 @@ const testSingleLinkObject = (dl, linkType, targetURL) => {
 
 const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredLinks) => {
     let done300 = false;
-    // console.log(`Looking at ${linkType} with its ${arrayOfLinkObjects.length} LOs, noting the 300s ${threehundredLinks}.`)
+    console.log(`Looking at ${linkType} with its ${arrayOfLinkObjects.length} LOs, noting the 300s ${threehundredLinks}.`)
     for (lo in arrayOfLinkObjects) {
         let lang = ''; let context = ''; let mediaType = '';
         let loObject = Object.create(resultProps);
@@ -1356,42 +1409,30 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             } 
         }
         // In all cases, we need to construct the request with all the relevant parameters
-        let queryString = '?'
+        let queryString = '&setHeaders=true';
         if (linkType !== 'gs1:defaultLinkMulti') {
             // Never ask for defaultLinkMulti explicitly
-            queryString = '?linkType=' + linkType;
+            queryString += '&linkType=' + encodeURIComponent(linkType);
         }
         if (arrayOfLinkObjects[lo].type !== null) {
             loObject.msg += ` type: ${arrayOfLinkObjects[lo].type}`;
-            if (queryString.length > 1) {
-                // So this isn't the first name=value pair
-                queryString += '&';
-            }
-            queryString += `mediaType=${arrayOfLinkObjects[lo].type}`;
+            queryString += `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
             
         }
         if (Array.isArray(arrayOfLinkObjects[lo].hreflang)) {
             loObject.msg += ` hreflang: ${arrayOfLinkObjects[lo].hreflang[0]}`;
-            if (queryString.length > 1) {
-                // So this isn't the first name=value pair
-                queryString += '&';
-            }
-            queryString += `lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
+            queryString += `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
         }
         if ((arrayOfLinkObjects[lo].context !== undefined) && (Array.isArray(arrayOfLinkObjects[lo].context))) {
-            if (queryString.length > 1) {
-                // So this isn't the first name=value pair
-                queryString += '&';
-            }
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context[0]}`;
-            queryString += `context=${arrayOfLinkObjects[lo].context[0]}`;
+            queryString += `&context=${arrayOfLinkObjects[lo].context[0]}`;
         } else if (arrayOfLinkObjects[lo].context !== undefined) {
             // console.log(`here with something else and ${arrayOfLinkObjects[lo].context}`)
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context}`
-            queryString += `context=${arrayOfLinkObjects[lo].context}`;
+            queryString += `&context=${arrayOfLinkObjects[lo].context}`;
         }
-        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + queryString);
-        console.log(`fetching ${loObject.url}`)
+        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl)) + queryString;
+        console.log(`this one ${loObject.url}`)
         recordResult(loObject);
         await runTest(loObject);
     }
@@ -1470,7 +1511,7 @@ const resultSummary = async () => {
         if ((resultsArray[i].id === 'validLinkset') || (resultsArray[i].id === 'hackedLinkset')) {
             if (resultsArray[i].status !== 'pass') {
                 // Critical failure as linkset must be valid
-                invalidLinksetText = `GS1-Conformant resolvers MUST return a valid linkset, formatted as JSON, as defined in RFC 9264`;
+                invalidLinksetText = `GS1-Conformant resolvers MUST return a valid linkset, formatted as JSON, as defined in RFC 9264.`;
                 criticalFailure++;
             }
         }
