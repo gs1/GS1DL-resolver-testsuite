@@ -20,8 +20,8 @@ const resultProps = {
 //  the tests we need to run. In those cases, we'll need to use a PHP script that executes the 
 // request and sends the response back as a JSON object. 
 
-const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
-// const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
+// const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
+const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
 // const testUri = 'https://philarcher.org/gs1/tester.php';
 
 // We'll make use of two JSON schemas
@@ -863,6 +863,8 @@ const fetchAndValidateTheLinkset = (dl) =>
                 if (debugMode) {
                     linksetObject = modelLinkset;
                     console.log(`using the model linkset`);
+                // } else {
+                    // console.log(`Working with this linkset ${JSON.stringify(linksetObject)}`);
                 }
 
                 const schemaTestResult = await doesJSONSchemaPass(linksetObject, gs1LinksetSchema);
@@ -1360,7 +1362,7 @@ const testSingleLinkObject = (dl, linkType, targetURL) => {
 
 const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredLinks) => {
     let done300 = false;
-    console.log(`Looking at ${linkType} with its ${arrayOfLinkObjects.length} LOs, noting the 300s ${threehundredLinks}.`)
+    // console.log(`Looking at ${linkType} with its ${arrayOfLinkObjects.length} LOs, noting the 300s in this array ${threehundredLinks}.`)
     for (lo in arrayOfLinkObjects) {
         let lang = ''; let context = ''; let mediaType = '';
         let loObject = Object.create(resultProps);
@@ -1395,9 +1397,9 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                 // Need to handle linkType in the target location query string whether on its own or added to existng query
                 let targetLocation = data.result.Location;
                 if (!targetLocation) {targetLocation = data.result.location}
-                if (targetLocation.indexOf('?linkType='+linkType) !== -1) {
+                if ((targetLocation) && (targetLocation.indexOf('?linkType='+linkType)) !== -1) {
                     targetLocation = stripQueryStringFromURL(targetLocation)
-                } else if (targetLocation.indexOf('&linkType='+linkType) !== -1) {
+                } else if ((targetLocation) &&  (targetLocation.indexOf('&linkType='+linkType) !== -1)) {
                     targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
                 }
                 // Now we can do the comparison
@@ -1409,7 +1411,7 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             } 
         }
         // In all cases, we need to construct the request with all the relevant parameters
-        let queryString = '&setHeaders=true';
+        let queryString = '';
         if (linkType !== 'gs1:defaultLinkMulti') {
             // Never ask for defaultLinkMulti explicitly
             queryString += '&linkType=' + encodeURIComponent(linkType);
@@ -1432,7 +1434,7 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             queryString += `&context=${arrayOfLinkObjects[lo].context}`;
         }
         loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl)) + queryString;
-        console.log(`this one ${loObject.url}`)
+        // console.log(`this one ${loObject.url}`)
         recordResult(loObject);
         await runTest(loObject);
     }
