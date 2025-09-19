@@ -77,8 +77,8 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
-            $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
-            $headersResult = getCustomHeaders($params['testVal'], $setAcceptHeaders, $params['mediaType'], $params['lang']);
+            // $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
+            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'], $params['lang']);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -87,7 +87,7 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getLinksetHeaders' && isset($params['testVal']))
         {
-            $headersResult = getCustomHeaders($params['testVal'], true, '','');
+            $headersResult = getCustomHeaders($params['testVal'], 'application/linkset+json','');
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -167,13 +167,11 @@ function getHttpVersion(string $url): string
 // Function to retrieve all headers
 // Note that the context param is in the URL query string and does not need translating into an
 // Accept Header
-function getCustomHeaders(string $uri, $setForLinkset, $mediaType, $lang): array
+function getCustomHeaders(string $uri, $mediaType, $lang): array
 {
     try {
         // Initialize cURL
         $ch = curl_init();
-
-
 
         // Set cURL options
         curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
@@ -185,15 +183,11 @@ function getCustomHeaders(string $uri, $setForLinkset, $mediaType, $lang): array
         // Setup cURL HTTP Request Headers
         $reqHeaders = ["Origin: https://ref.gs1.org/test-suites/resolver/"];
         
-        if ($setForLinkset) {
-            array_push($reqHeaders, "Accept: application/linkset+json"); // Set the Accept header
-        }  else {
-            if (isset($mediaType)) {
-                array_push($reqHeaders, "Accept: $mediaType");
-            }
-            if (isset($lang)) {
-                array_push($reqHeaders, "Accept-Language: $lang");
-            }
+        if (isset($mediaType)) {
+            array_push($reqHeaders, "Accept: $mediaType");
+        }
+        if (isset($lang)) {
+            array_push($reqHeaders, "Accept-Language: $lang");
         }
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
