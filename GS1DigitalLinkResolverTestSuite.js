@@ -332,7 +332,7 @@ const testDL = async (dl) =>
         await runTest(fetchAndValidateTheLinkset(dl));
         //await runTest(linksetJsonldHeaderTest(dl));
         await runTest(testFor404(dl));
-        await resultSummary();
+        await resultSummary(dl);
         
     }
     rotatingCircle(false);
@@ -1495,7 +1495,7 @@ const testFor404 = (dl) => {
     return specificLinkTypeNotFound;
 }
 
-const resultSummary = async () => {
+const resultSummary = async (dl) => {
     // Working with the testArray that was defined as a global variable near the top
     // Let's start by calculating a simple percentage success
     let pass = 0; let fail = 0; let rdFileText=''; let invalidLinksetText=''; 
@@ -1542,6 +1542,18 @@ const resultSummary = async () => {
     if (text !== '') {
         document.getElementById(outputElement).prepend(p)
     }
+
+    // 2025-10-20 Adding "link to this result"
+    let linkP = document.createElement('p');
+    linkP.id = "linkToResult"
+    let a = document.createElement('a');
+    a.appendChild(document.createTextNode("🔗"));
+    a.title="Link to this result";
+    let currentLoc = location.href.toString().substring(0, location.href.toString().indexOf('?'))
+    a.href = `${currentLoc}?${encodeURIComponent(dl)}`;
+    linkP.appendChild(a);
+    document.getElementById(outputElement).appendChild(linkP);
+
 }
 
 
