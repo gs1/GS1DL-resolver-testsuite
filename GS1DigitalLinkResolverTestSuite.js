@@ -25,7 +25,7 @@ const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
 // const testUri = 'https://philarcher.org/gs1/tester.php';
 
 // We'll make use of two JSON schemas
-const resolverDescriptionFileSchema = 'https://ref.gs1.org/standards/resolver/description-file-schema';
+const resolverDescriptionFileSchema = 'https://ref.gs1.org/standards/resolver/1.2.0/description-file-schema';
 const gs1LinksetSchema = 'https://gs1.github.io/linkset/gs1-linkset-schema.json';
 
 // const RabinRegEx = /^(([^:\/?#]+):)?(\/\/((([^\/?#]*)@)?([^\/?#:]*)(:([^\/?#]*))?))?([^?#]*)(\?([^#]*))?(#(.*))?/;
