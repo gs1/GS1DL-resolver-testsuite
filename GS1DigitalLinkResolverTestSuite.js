@@ -1134,7 +1134,7 @@ const linksetTests = async (dl, linksetObject) => {
                 for (j in workingLinksetObject.linkset[i]) {
                     // So we're working our way through the array that is the value of the 
                     // `linkset` property
-                    if ((j !== 'anchor') && (j !== 'itemDescription')) {
+                    if ((j !== 'anchor') && ((j !== 'itemDescription') && (j !== 'description'))) {
                         // In a valid linset, if it's not the anchor or the itemDescription, 
                         // it must be a link type
                         const currentLinkType = j;
