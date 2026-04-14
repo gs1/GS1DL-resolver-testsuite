@@ -78,7 +78,7 @@ function handleApiRequest(string $queryString): string
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
             // $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
-            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'], $params['lang']);
+            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'] ?? null, $params['lang'] ?? null);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
