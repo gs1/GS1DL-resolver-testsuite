@@ -1397,15 +1397,19 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                 // Need to handle linkType in the target location query string whether on its own or added to existng query
                 let targetLocation = data.result.Location;
                 if (!targetLocation) {targetLocation = data.result.location}
-                if ((targetLocation) && (targetLocation.indexOf('?linkType='+linkType)) !== -1) {
+                const encodedLinkType = encodeURIComponent(linkType);
+                if ((targetLocation) && (targetLocation.indexOf('?linkType='+linkType) !== -1 || targetLocation.indexOf('?linkType='+encodedLinkType) !== -1)) {
                     targetLocation = stripQueryStringFromURL(targetLocation)
-                } else if ((targetLocation) &&  (targetLocation.indexOf('&linkType='+linkType) !== -1)) {
-                    targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
+                } else if ((targetLocation) && (targetLocation.indexOf('&linkType='+linkType) !== -1 || targetLocation.indexOf('&linkType='+encodedLinkType) !== -1)) {
+                    targetLocation = targetLocation.substring(0, targetLocation.indexOf(targetLocation.indexOf('&linkType='+linkType) !== -1 ? '&linkType='+linkType : '&linkType='+encodedLinkType))
                 }
                 // Now we can do the comparison
                 if (arrayOfLinkObjects[lo].href === targetLocation) {
                     loObject.status = 'pass';
                     loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                } else if (data.result['httpCode'] === 300) {
+                    loObject.status = 'warn';
+                    loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
                 }
                 recordResult(loObject);
             } 
