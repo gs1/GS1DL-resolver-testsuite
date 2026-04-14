@@ -77,8 +77,13 @@ function handleApiRequest(string $queryString): string
         }
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
-            // $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
-            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'], $params['lang']);
+            // linkType and context are resolver query params; mediaType and lang become HTTP headers
+            $uri = $params['testVal'];
+            $uriParams = [];
+            if (isset($params['linkType'])) { $uriParams[] = 'linkType=' . urlencode($params['linkType']); }
+            if (isset($params['context']))  { $uriParams[] = 'context='  . urlencode($params['context']);  }
+            if (!empty($uriParams)) { $uri .= '?' . implode('&', $uriParams); }
+            $headersResult = getCustomHeaders($uri, $params['mediaType'] ?? null, $params['lang'] ?? null);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
