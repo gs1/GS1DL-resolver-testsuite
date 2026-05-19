@@ -80,9 +80,45 @@ function handleApiRequest(string $queryString): string
             // linkType and context are resolver query params; mediaType and lang become HTTP headers
             $uri = $params['testVal'];
             $uriParams = [];
-            if (isset($params['linkType'])) { $uriParams[] = 'linkType=' . urlencode($params['linkType']); }
-            if (isset($params['context']))  { $uriParams[] = 'context='  . urlencode($params['context']);  }
-            if (!empty($uriParams)) { $uri .= '?' . implode('&', $uriParams); }
+            if (isset($params['linkType'])) { $uriParams['linkType'] = $params['linkType']; }
+            if (isset($params['context']))  { $uriParams['context'] = $params['context']; }
+            if (!empty($uriParams)) {
+                $parsedUri = parse_url($uri);
+                if ($parsedUri !== false) {
+                    $existingQueryParams = [];
+                    if (isset($parsedUri['query'])) {
+                        parse_str($parsedUri['query'], $existingQueryParams);
+                    }
+                    $mergedQueryParams = array_merge($existingQueryParams, $uriParams);
+                    $rebuiltUri = '';
+                    if (isset($parsedUri['scheme'])) {
+                        $rebuiltUri .= $parsedUri['scheme'] . '://';
+                    }
+                    if (isset($parsedUri['user'])) {
+                        $rebuiltUri .= $parsedUri['user'];
+                        if (isset($parsedUri['pass'])) {
+                            $rebuiltUri .= ':' . $parsedUri['pass'];
+                        }
+                        $rebuiltUri .= '@';
+                    }
+                    if (isset($parsedUri['host'])) {
+                        $rebuiltUri .= $parsedUri['host'];
+                    }
+                    if (isset($parsedUri['port'])) {
+                        $rebuiltUri .= ':' . $parsedUri['port'];
+                    }
+                    $rebuiltUri .= $parsedUri['path'] ?? '';
+
+                    $query = http_build_query($mergedQueryParams, '', '&', PHP_QUERY_RFC3986);
+                    if ($query !== '') {
+                        $rebuiltUri .= '?' . $query;
+                    }
+                    if (isset($parsedUri['fragment'])) {
+                        $rebuiltUri .= '#' . $parsedUri['fragment'];
+                    }
+                    $uri = $rebuiltUri;
+                }
+            }
             $headersResult = getCustomHeaders($uri, $params['mediaType'] ?? null, $params['lang'] ?? null);
             $resultObj = [
                 "test" => $params['test'],
