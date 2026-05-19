@@ -1220,7 +1220,7 @@ const linksetTests = async (dl, linksetObject) => {
                                                     if (workingLinksetObject.linkset[i][currentLinkType][m].hreflang) {lo2.hreflang = workingLinksetObject.linkset[i][currentLinkType][m].hreflang}
                                                     if (workingLinksetObject.linkset[i][currentLinkType][m].context) {lo2.context = workingLinksetObject.linkset[i][currentLinkType][m].context}
                                                     if (identicalAttributes(lo1, lo2)) {
-                                                        if (!threehundredLinks.includes(f)) {threehundredLinks.push(m)}
+                                                        if (!threehundredLinks.includes(f)) {threehundredLinks.push(f)}
                                                         if (!threehundredLinks.includes(m)) {threehundredLinks.push(m)}
                                                     }
                                     
@@ -1339,25 +1339,26 @@ const testSingleLinkObject = (dl, linkType, targetURL) => {
     loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + '?linkType=' + linkType);
     // console.log(`Single link object fetching ${loObject.url}`)
     recordResult(loObject);
-    loObject.process = async (data) =>
-        {
-            let targetLocation = data.result.Location;
-            if (!targetLocation) {targetLocation = data.result.location}
-            if (targetLocation.indexOf('?linkType='+linkType) !== -1) 
-                {
-                    targetLocation = stripQueryStringFromURL(targetLocation)
-                } else if (targetLocation.indexOf('&linkType='+linkType) !== -1) 
-                {
-                    targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
-                }
-            //console.log(`targetURL is ${targetURL} and targetLocation is ${targetLocation}, test is ${(targetURL === targetLocation)}`)
-            if (targetURL === targetLocation) {
-                loObject.status = 'pass';
-                loObject.msg = `Resolver correctly redirects to ${targetURL} for ${linkType} `
-                recordResult(loObject);
-            }
-        } 
-    return loObject 
+    loObject.process = async (data) => {
+        const location = data.result.Location ?? data.result.location;
+        if (stripLinkType(location, linkType) === stripLinkType(targetURL, linkType)) {
+            loObject.status = 'pass';
+            loObject.msg = `Resolver correctly redirects to ${targetURL} for ${linkType} `
+            recordResult(loObject);
+        }
+    }
+    return loObject
+}
+
+// Drop the ?linkType=$lt (or &linkType=$lt) param, encoded or not.
+const stripLinkType = (url, linkType) => {
+    if (!url) return url;
+    for (const lt of [linkType, encodeURIComponent(linkType)]) {
+        if (url.includes('?linkType=' + lt)) return stripQueryStringFromURL(url);
+        const amp = url.indexOf('&linkType=' + lt);
+        if (amp !== -1) return url.substring(0, amp);
+    }
+    return url;
 }
 
 const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredLinks) => {
@@ -1391,24 +1392,14 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             // So now we're looking for a redirect, not a 300
             loObject.test = 'If the requested type of link is available, the resolver SHALL redirect to it';
             loObject.msg = `Requesting linkType of ${linkType} with the following parameters did not redirect to ${arrayOfLinkObjects[lo].href}`;
-            loObject.process = async (data) =>
-            {
-                // Need to handle 'location' and 'Location'
-                // Need to handle linkType in the target location query string whether on its own or added to existng query
-                let targetLocation = data.result.Location;
-                if (!targetLocation) {targetLocation = data.result.location}
-                if ((targetLocation) && (targetLocation.indexOf('?linkType='+linkType)) !== -1) {
-                    targetLocation = stripQueryStringFromURL(targetLocation)
-                } else if ((targetLocation) &&  (targetLocation.indexOf('&linkType='+linkType) !== -1)) {
-                    targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
-                }
-                // Now we can do the comparison
-                if (arrayOfLinkObjects[lo].href === targetLocation) {
+            loObject.process = async (data) => {
+                const location = data.result.Location ?? data.result.location;
+                if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
                     loObject.status = 'pass';
                     loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
                 }
                 recordResult(loObject);
-            } 
+            }
         }
         // In all cases, we need to construct the request with all the relevant parameters
         let queryString = '';
