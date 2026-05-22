@@ -502,7 +502,7 @@ const headerBasedChecks = (dl) =>
                     (data.result['access-control-allow-methods'].indexOf('HEAD') > -1)) &&
                 (data.result['access-control-allow-methods'].indexOf('OPTIONS') > -1)))
         { // We have our three allowed methods
-            methodsCheck.msg = 'GET, HEAD an OPTIONS methods declared to be supported';
+            methodsCheck.msg = 'GET, HEAD and OPTIONS methods declared to be supported';
             methodsCheck.status = 'pass';
             recordResult(methodsCheck);
         }
