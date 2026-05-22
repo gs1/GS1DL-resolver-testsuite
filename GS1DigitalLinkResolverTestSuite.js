@@ -913,7 +913,7 @@ const fetchAndValidateTheLinkset = (dl) =>
                 } else if (resultObject.headers['Content-Type']) {
                     contentType = resultObject.headers['Content-Type'];
                 }
-                if (contentType === 'application/linkset+json') {
+                if (contentType.startsWith('application/linkset+json')) {
                     declaredContentType.status = 'pass';
                     declaredContentType.msg = 'Content type for the linkset retrieved from the resolver matches the requested application/linkset+json';
                 } else if (contentType === 'application/json') {
