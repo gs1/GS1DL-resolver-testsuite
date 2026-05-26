@@ -1411,30 +1411,28 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             } 
         }
         // In all cases, we need to construct the request with all the relevant parameters
-        let queryString = '';
+        let commandQueryString = '';
+        let urlQueryString = '?';
         if (linkType !== 'gs1:defaultLinkMulti') {
             // Never ask for defaultLinkMulti explicitly
-            queryString += '&linkType=' + encodeURIComponent(linkType);
+            urlQueryString += 'linkType=' + encodeURIComponent(linkType);
         }
         if (arrayOfLinkObjects[lo].type !== null) {
             loObject.msg += ` type: ${arrayOfLinkObjects[lo].type}`;
-            queryString += `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
-            
+            commandQueryString += `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
         }
         if (Array.isArray(arrayOfLinkObjects[lo].hreflang)) {
             loObject.msg += ` hreflang: ${arrayOfLinkObjects[lo].hreflang[0]}`;
-            queryString += `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
+            commandQueryString += `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
         }
         if ((arrayOfLinkObjects[lo].context !== undefined) && (Array.isArray(arrayOfLinkObjects[lo].context))) {
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context[0]}`;
-            queryString += `&context=${arrayOfLinkObjects[lo].context[0]}`;
+            urlQueryString += `&context=${arrayOfLinkObjects[lo].context[0]}`;
         } else if (arrayOfLinkObjects[lo].context !== undefined) {
-            // console.log(`here with something else and ${arrayOfLinkObjects[lo].context}`)
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context}`
-            queryString += `&context=${arrayOfLinkObjects[lo].context}`;
+            urlQueryString += `&context=${arrayOfLinkObjects[lo].context}`;
         }
-        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl)) + queryString;
-        // console.log(`this one ${loObject.url}`)
+        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + urlQueryString) + commandQueryString;
         recordResult(loObject);
         await runTest(loObject);
     }
