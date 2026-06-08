@@ -78,7 +78,7 @@ function handleApiRequest(string $queryString): string
         elseif ($params['test'] === 'getAllHeaders' && isset($params['testVal']))
         {
             // $setAcceptHeaders = isset($params['setHeaders']) ? true : false;
-            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'], $params['lang']);
+            $headersResult = getCustomHeaders($params['testVal'], $params['mediaType'] ?? null, $params['lang'] ?? null);
             $resultObj = [
                 "test" => $params['test'],
                 "testVal" => $params['testVal'],
@@ -104,6 +104,15 @@ function handleApiRequest(string $queryString): string
                 "result" => $linksetResult
             ];
         }
+        elseif ($params['test'] === 'getCorsHeaders' && isset($params['testVal']))
+        {
+            $headersResult = getCorsHeaders($params['testVal']);
+            $resultObj = [
+                "test" => $params['test'],
+                "testVal" => $params['testVal'],
+                "result" => $headersResult
+            ];
+        }
         else
         {
             $resultObj = ["error" => "Invalid test command"];
@@ -120,7 +129,7 @@ function handleApiRequest(string $queryString): string
 // Function to parse the query string
 function parseQuery(string $query): array
 {
-    parse_str($query, $result);
+    parse_str(urldecode($query), $result);
     // echo "Incoming testVal is ".$result['testVal'];
     // Security check to make sure we're only handling https query
     // Note that the PHP function parse_str url decodes the received data
@@ -189,6 +198,68 @@ function getCustomHeaders(string $uri, $mediaType, $lang): array
         if (isset($lang)) {
             array_push($reqHeaders, "Accept-Language: $lang");
         }
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
+            
+        // Execute the request
+        $response = curl_exec($ch);
+
+        // Check for cURL errors
+        if ($response === false) {
+            throw new Exception("cURL error: " . curl_error($ch));
+        }
+
+        // Extract headers from the response
+        $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE); // Get the size of the headers
+        $headersRaw = substr($response, 0, $headerSize); // Extract raw headers
+        $headers = parseHeadersToArray($headersRaw); // Convert raw headers to an associative array
+
+        // Extract HTTP status code
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        // Cleanup
+        curl_close($ch);
+
+        // Prepare the result
+        $result = [
+            "uri" => $uri,
+            "httpCode" => $httpCode,
+            "httpMsg" => parseHttpStatusMessage($headersRaw),
+            "requestURI" => $_SERVER['REQUEST_URI'] ?? '',
+            "Requesting_User_Agent" => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            "Requesting_Accept_Header" => $_SERVER['HTTP_ACCEPT'] ?? '',
+            "Requesting_Accept_Language" => $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '',
+        ];
+
+        // Merge response headers into the result
+        return array_merge($result, $headers, $reqHeaders);
+    } catch (Exception $e) {
+        return ["error" => $e->getMessage()];
+    }
+}
+
+// Function to retrieve CORS headers
+// Note that the context param is in the URL query string and does not need translating into an
+// Accept Header
+function getCorsHeaders(string $uri): array
+{
+    try {
+        // Initialize cURL
+        $ch = curl_init();
+
+        // Set cURL options
+        curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "OPTIONS");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response as a string
+        curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in the output
+        curl_setopt($ch, CURLOPT_NOBODY, true); // Fetch only response headers
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Do not follow redirects
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
+        // Setup cURL HTTP Request Headers
+        $reqHeaders = [
+            "Origin: https://ref.gs1.org/test-suites/resolver/",
+            "Access-Control-Request-Method: GET,HEAD,OPTIONS"
+        ];
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
             

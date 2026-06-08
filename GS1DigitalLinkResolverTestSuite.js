@@ -478,7 +478,7 @@ const headerBasedChecks = (dl) =>
     recordResult(methodsCheck);
 
     let u = stripQueryStringFromURL(dl);
-    corsCheck.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+    corsCheck.url = testUri + '?test=getCorsHeaders&testVal=' + encodeURIComponent(u);
     // console.log(`Looking at ${testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(u)}`);
     corsCheck.process = async (data) =>
     {
@@ -502,7 +502,7 @@ const headerBasedChecks = (dl) =>
                     (data.result['access-control-allow-methods'].indexOf('HEAD') > -1)) &&
                 (data.result['access-control-allow-methods'].indexOf('OPTIONS') > -1)))
         { // We have our three allowed methods
-            methodsCheck.msg = 'GET, HEAD an OPTIONS methods declared to be supported';
+            methodsCheck.msg = 'GET, HEAD and OPTIONS methods declared to be supported';
             methodsCheck.status = 'pass';
             recordResult(methodsCheck);
         }
@@ -913,7 +913,7 @@ const fetchAndValidateTheLinkset = (dl) =>
                 } else if (resultObject.headers['Content-Type']) {
                     contentType = resultObject.headers['Content-Type'];
                 }
-                if (contentType === 'application/linkset+json') {
+                if (contentType.startsWith('application/linkset+json')) {
                     declaredContentType.status = 'pass';
                     declaredContentType.msg = 'Content type for the linkset retrieved from the resolver matches the requested application/linkset+json';
                 } else if (contentType === 'application/json') {
@@ -1220,7 +1220,7 @@ const linksetTests = async (dl, linksetObject) => {
                                                     if (workingLinksetObject.linkset[i][currentLinkType][m].hreflang) {lo2.hreflang = workingLinksetObject.linkset[i][currentLinkType][m].hreflang}
                                                     if (workingLinksetObject.linkset[i][currentLinkType][m].context) {lo2.context = workingLinksetObject.linkset[i][currentLinkType][m].context}
                                                     if (identicalAttributes(lo1, lo2)) {
-                                                        if (!threehundredLinks.includes(f)) {threehundredLinks.push(m)}
+                                                        if (!threehundredLinks.includes(f)) {threehundredLinks.push(f)}
                                                         if (!threehundredLinks.includes(m)) {threehundredLinks.push(m)}
                                                     }
                                     
@@ -1339,25 +1339,26 @@ const testSingleLinkObject = (dl, linkType, targetURL) => {
     loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + '?linkType=' + linkType);
     // console.log(`Single link object fetching ${loObject.url}`)
     recordResult(loObject);
-    loObject.process = async (data) =>
-        {
-            let targetLocation = data.result.Location;
-            if (!targetLocation) {targetLocation = data.result.location}
-            if (targetLocation.indexOf('?linkType='+linkType) !== -1) 
-                {
-                    targetLocation = stripQueryStringFromURL(targetLocation)
-                } else if (targetLocation.indexOf('&linkType='+linkType) !== -1) 
-                {
-                    targetLocation = targetLocation.substring(0, targetLocation.indexOf('&linkType='))
-                }
-            //console.log(`targetURL is ${targetURL} and targetLocation is ${targetLocation}, test is ${(targetURL === targetLocation)}`)
-            if (targetURL === targetLocation) {
-                loObject.status = 'pass';
-                loObject.msg = `Resolver correctly redirects to ${targetURL} for ${linkType} `
-                recordResult(loObject);
-            }
-        } 
-    return loObject 
+    loObject.process = async (data) => {
+        const location = data.result.Location ?? data.result.location;
+        if (stripLinkType(location, linkType) === stripLinkType(targetURL, linkType)) {
+            loObject.status = 'pass';
+            loObject.msg = `Resolver correctly redirects to ${targetURL} for ${linkType} `
+            recordResult(loObject);
+        }
+    }
+    return loObject
+}
+
+// Drop the ?linkType=$lt (or &linkType=$lt) param, encoded or not.
+const stripLinkType = (url, linkType) => {
+    if (!url) return url;
+    for (const lt of [linkType, encodeURIComponent(linkType)]) {
+        if (url.includes('?linkType=' + lt)) return stripQueryStringFromURL(url);
+        const amp = url.indexOf('&linkType=' + lt);
+        if (amp !== -1) return url.substring(0, amp);
+    }
+    return url;
 }
 
 const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredLinks) => {
@@ -1405,6 +1406,9 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                 }
                 // Now we can do the comparison
                 if (arrayOfLinkObjects[lo].href === targetLocation) {
+            loObject.process = async (data) => {
+                const location = data.result.Location ?? data.result.location;
+                if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
                     loObject.status = 'pass';
                     loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
                 } else if (data.result['httpCode'] === 300) {
@@ -1412,33 +1416,31 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                     loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
                 }
                 recordResult(loObject);
-            } 
+            }
         }
         // In all cases, we need to construct the request with all the relevant parameters
-        let queryString = '';
+        let commandQueryString = '';
+        let urlQueryString = '?';
         if (linkType !== 'gs1:defaultLinkMulti') {
             // Never ask for defaultLinkMulti explicitly
-            queryString += '&linkType=' + encodeURIComponent(linkType);
+            urlQueryString += 'linkType=' + encodeURIComponent(linkType);
         }
         if (arrayOfLinkObjects[lo].type !== null) {
             loObject.msg += ` type: ${arrayOfLinkObjects[lo].type}`;
-            queryString += `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
-            
+            commandQueryString += `&mediaType=${encodeURIComponent(arrayOfLinkObjects[lo].type)}`;
         }
         if (Array.isArray(arrayOfLinkObjects[lo].hreflang)) {
             loObject.msg += ` hreflang: ${arrayOfLinkObjects[lo].hreflang[0]}`;
-            queryString += `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
+            commandQueryString += `&lang=${arrayOfLinkObjects[lo].hreflang[0]}`;
         }
         if ((arrayOfLinkObjects[lo].context !== undefined) && (Array.isArray(arrayOfLinkObjects[lo].context))) {
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context[0]}`;
-            queryString += `&context=${arrayOfLinkObjects[lo].context[0]}`;
+            urlQueryString += `&context=${arrayOfLinkObjects[lo].context[0]}`;
         } else if (arrayOfLinkObjects[lo].context !== undefined) {
-            // console.log(`here with something else and ${arrayOfLinkObjects[lo].context}`)
             loObject.msg += ` context: ${arrayOfLinkObjects[lo].context}`
-            queryString += `&context=${arrayOfLinkObjects[lo].context}`;
+            urlQueryString += `&context=${arrayOfLinkObjects[lo].context}`;
         }
-        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl)) + queryString;
-        // console.log(`this one ${loObject.url}`)
+        loObject.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(stripQueryStringFromURL(dl) + urlQueryString) + commandQueryString;
         recordResult(loObject);
         await runTest(loObject);
     }
