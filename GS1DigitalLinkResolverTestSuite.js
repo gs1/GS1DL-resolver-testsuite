@@ -478,7 +478,7 @@ const headerBasedChecks = (dl) =>
     recordResult(methodsCheck);
 
     let u = stripQueryStringFromURL(dl);
-    corsCheck.url = testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(u);
+    corsCheck.url = testUri + '?test=getCorsHeaders&testVal=' + encodeURIComponent(u);
     // console.log(`Looking at ${testUri + '?test=getAllHeaders&testVal=' + encodeURIComponent(u)}`);
     corsCheck.process = async (data) =>
     {
