@@ -1392,11 +1392,28 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
             // So now we're looking for a redirect, not a 300
             loObject.test = 'If the requested type of link is available, the resolver SHALL redirect to it';
             loObject.msg = `Requesting linkType of ${linkType} with the following parameters did not redirect to ${arrayOfLinkObjects[lo].href}`;
+            loObject.process = async (data) =>
+            {
+                // Need to handle 'location' and 'Location'
+                // Need to handle linkType in the target location query string whether on its own or added to existng query
+                let targetLocation = data.result.Location;
+                if (!targetLocation) {targetLocation = data.result.location}
+                const encodedLinkType = encodeURIComponent(linkType);
+                if ((targetLocation) && (targetLocation.indexOf('?linkType='+linkType) !== -1 || targetLocation.indexOf('?linkType='+encodedLinkType) !== -1)) {
+                    targetLocation = stripQueryStringFromURL(targetLocation)
+                } else if ((targetLocation) && (targetLocation.indexOf('&linkType='+linkType) !== -1 || targetLocation.indexOf('&linkType='+encodedLinkType) !== -1)) {
+                    targetLocation = targetLocation.substring(0, targetLocation.indexOf(targetLocation.indexOf('&linkType='+linkType) !== -1 ? '&linkType='+linkType : '&linkType='+encodedLinkType))
+                }
+                // Now we can do the comparison
+                if (arrayOfLinkObjects[lo].href === targetLocation) {
             loObject.process = async (data) => {
                 const location = data.result.Location ?? data.result.location;
                 if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
                     loObject.status = 'pass';
                     loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                } else if (data.result['httpCode'] === 300) {
+                    loObject.status = 'warn';
+                    loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
                 }
                 recordResult(loObject);
             }
