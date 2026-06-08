@@ -21,7 +21,7 @@ const resultProps = {
 // request and sends the response back as a JSON object. 
 
 // const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
-// const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
+//const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
 const testUri = 'https://philarcher.org/gs1/tester.php';
 
 // We'll make use of two JSON schemas
@@ -421,28 +421,27 @@ const rdFileCheck = async (domain) =>
     }
     
 
-    const checkHttpVersion = (domain) =>
+  const checkHttpVersion = (domain) =>
+    {
+      let httpVersion = Object.create(resultProps);
+      httpVersion.id = 'httpVersion';
+      httpVersion.test = 'SHALL support HTTP 1.1 (or higher)';
+      httpVersion.status = 'warn';
+      httpVersion.msg = 'HTTP version not detected. If other tests passed, it\'s probably OK';
+      httpVersion.url = testUri + '?test=getHTTPversion&testVal=' + encodeURIComponent(`https://${domain}`);
+      recordResult(httpVersion);
+      httpVersion.process = async (data) =>
         {
-            let httpVersion = Object.create(resultProps);
-            httpVersion.id = 'httpVersion';
-            httpVersion.test = 'SHALL support HTTP 1.1 (or higher)';
-            httpVersion.status = 'warn';
-            httpVersion.msg = 'HTTP version not detected. If other tests passed, it\'s probably OK';
-            httpVersion.url = testUri + '?test=getHTTPversion&testVal=' + encodeURIComponent(`https://${domain}`);
-            recordResult(httpVersion);
-            httpVersion.process = async (data) =>
+          let r = parseFloat(data.result.toUpperCase().replace('HTTP', '').replace('/', ''));
+          if (r && r >= 1.1)
             {
-                let r = parseFloat(data.result.toUpperCase().replace('HTTP', '').replace('/', ''));
-                if (r && r >= 1.1)
-                {
-                    httpVersion.status = 'pass';
-                    httpVersion.msg = 'Server at ' + domain + ' supports HTTP ' + r;
-                }
-                recordResult(httpVersion);
+              httpVersion.status = 'pass';
+              httpVersion.msg = 'Server at ' + domain + ' supports HTTP ' + r;
             }
-        
-            return httpVersion;
+            recordResult(httpVersion);
         }
+        return httpVersion;
+    }
         
 
 const headerBasedChecks = (dl) =>
@@ -1744,6 +1743,6 @@ function sendOutput(o)
     }
     catch (e)
     {
-        console.log('sendOutput() Error: ' + e.message);
+        console.log(`sendOutput() Error: ${e.message}`);
     }
-}
+  }
