@@ -1405,15 +1405,19 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                     targetLocation = targetLocation.substring(0, targetLocation.indexOf(targetLocation.indexOf('&linkType='+linkType) !== -1 ? '&linkType='+linkType : '&linkType='+encodedLinkType))
                 }
                 // Now we can do the comparison
-                if (arrayOfLinkObjects[lo].href === targetLocation) {
-            loObject.process = async (data) => {
-                const location = data.result.Location ?? data.result.location;
-                if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
-                    loObject.status = 'pass';
-                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
-                } else if (data.result['httpCode'] === 300) {
-                    loObject.status = 'warn';
-                    loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
+                if (arrayOfLinkObjects[lo].href === targetLocation) 
+                {
+                    loObject.process = async (data) => 
+                    {
+                        const location = data.result.Location ?? data.result.location;
+                        if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
+                            loObject.status = 'pass';
+                            loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                        } else if (data.result['httpCode'] === 300) {
+                            loObject.status = 'warn';
+                            loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
+                        }
+                    }
                 }
                 recordResult(loObject);
             }
