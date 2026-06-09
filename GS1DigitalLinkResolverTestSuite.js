@@ -1406,16 +1406,14 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
                 // Now we can do the comparison
                 if (arrayOfLinkObjects[lo].href === targetLocation) 
                 {
-                    loObject.process = async (data) => 
-                    {
-                        const location = data.result.Location ?? data.result.location;
-                        if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
-                            loObject.status = 'pass';
-                            loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
-                        } else if (data.result['httpCode'] === 300) {
-                            loObject.status = 'warn';
-                            loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
-                        }
+                    const location = data.result.Location ?? data.result.location;
+                    
+                    if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
+                        loObject.status = 'pass';
+                        loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                    } else if (data.result['httpCode'] === 300) {
+                        loObject.status = 'warn';
+                        loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
                     }
                 }
                 recordResult(loObject);
