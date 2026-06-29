@@ -129,7 +129,7 @@ function handleApiRequest(string $queryString): string
 // Function to parse the query string
 function parseQuery(string $query): array
 {
-    parse_str(urldecode($query), $result);
+    parse_str($query, $result);
     // echo "Incoming testVal is ".$result['testVal'];
     // Security check to make sure we're only handling https query
     // Note that the PHP function parse_str url decodes the received data
@@ -186,7 +186,7 @@ function getCustomHeaders(string $uri, $mediaType, $lang): array
         curl_setopt($ch, CURLOPT_URL, $uri); // Set the URL
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response as a string
         curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in the output
-        curl_setopt($ch, CURLOPT_NOBODY, false); // Fetch the entire response (headers + body)
+        curl_setopt($ch, CURLOPT_NOBODY, true); // Use HEAD not GET
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Do not follow redirects
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
         // Setup cURL HTTP Request Headers
