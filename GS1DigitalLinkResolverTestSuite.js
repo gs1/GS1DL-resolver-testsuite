@@ -1397,10 +1397,12 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
 
                 if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
                     loObject.status = 'pass';
-                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected');
+                    recordResult(loObject);
                 } else if (data.result['httpCode'] === 300) {
                     loObject.status = 'warn';
                     loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
+                    recordResult(loObject);
                 }
             }
         }
