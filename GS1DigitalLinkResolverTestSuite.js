@@ -20,8 +20,6 @@ const resultProps = {
 //  the tests we need to run. In those cases, we'll need to use a PHP script that executes the 
 // request and sends the response back as a JSON object. 
 
-// const testUri = 'http://localhost:8000/test-suites/resolver/1.0.0/tester.php';
-//const testUri = 'https://ref.gs1.org/test-suites/resolver/1.0.0/tester.php';
 const testUri = 'https://philarcher.org/gs1/tester.php';
 
 // We'll make use of two JSON schemas
