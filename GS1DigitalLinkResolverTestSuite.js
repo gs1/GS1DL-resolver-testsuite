@@ -452,22 +452,6 @@ const headerBasedChecks = (dl) =>
     corsCheck.msg = 'CORS headers not detected';
     recordResult(corsCheck);
 
-    // *************** Need to look at the link header
-    let linkOnRedirect = Object.create(resultProps);
-    linkOnRedirect.id = 'linkOnRedirect';
-    linkOnRedirect.test = 'SHOULD expose the direct link to the linkset in an HTTP Link header when redirecting.';
-    linkOnRedirect.status = 'warn';
-    linkOnRedirect.msg = 'No link to the linkset detected when redirecting';
-    recordResult(linkOnRedirect);
-
-    
-    let legacyLinkHeaders  = Object.create(resultProps);
-    legacyLinkHeaders.id = 'legacyLinkHeaders';
-    legacyLinkHeaders.test = 'The inclusion of all possible links in the HTTP Link header was deprecated in version 1.0.0 of the GS1-Conformant resolver standard, February 2024';
-    legacyLinkHeaders.status = 'pass'; // This is unusual - we're setting this pass and will change to warn if we find a reason
-    legacyLinkHeaders.msg = 'No unnecessary links found in HTTP Link header';
-    recordResult(legacyLinkHeaders);
-
     let methodsCheck = Object.create(resultProps);
     methodsCheck.id = 'methodsCheck';
     methodsCheck.test = 'SHALL support HTTP 1.1 (or higher) GET, HEAD and OPTIONS requests.';
@@ -502,49 +486,6 @@ const headerBasedChecks = (dl) =>
             methodsCheck.msg = 'GET, HEAD and OPTIONS methods declared to be supported';
             methodsCheck.status = 'pass';
             recordResult(methodsCheck);
-        }
-
-        // Handling case-insensitivity of 'Link/link' header
-        let linkHeader = data.result['Link'];
-        if (!linkHeader) {linkHeader = data.result['link'];}
-        if (linkHeader)
-        {   
-            // we have a link header. 
-            // We just want to make sure that there's a link to the linkset.
-            // This means a link with a rel value of linkset 
-            // If there is more than one link in the header, we can see if they're still
-            // including all the links from the linkset. If so, we can warn and say that this
-            // is now deprecated.
-            
-            // console.log(`Link header is ${linkHeader}`);
-            let allLinks = linkHeader.split('",');
-            for (let i in allLinks)
-            {
-                if (!allLinks.hasOwnProperty(i))
-                {
-                    continue;
-                }
-                allLinks[i] += '"';
-            }
-
-            // console.log(`All links is ${allLinks}`);
-            // So we have an array, each item in a link with all its attributes
-            // We just need to find a link with rel="linkset"
-            for (link in allLinks)
-            {
-                // console.log(`Looking at a link header ${allLinks[link]}`)
-                if (allLinks[link].indexOf('rel="linkset"') > -1){
-                    linkOnRedirect.status = 'pass';
-                    linkOnRedirect.msg = 'Link to the linkset detected when redirecting';
-                    recordResult(linkOnRedirect);
-                } 
-                if (allLinks[link].indexOf('rel="gs1:') > -1){
-                    // All we're looking for is a link with an @rel value that includes a gs1: CURIE
-                    legacyLinkHeaders.status = 'warn'; 
-                    legacyLinkHeaders.msg = 'Unnecessary links found in HTTP Link header';
-                    recordResult(legacyLinkHeaders);
-                }
-            }
         }
     }
     return corsCheck;
@@ -1037,6 +978,21 @@ const doesJSONSchemaPass = async (data, schemaUrl) =>
 
 const testQuery = (dl) =>
 {
+    // *************** Need to look at the link header
+    let linkOnRedirect = Object.create(resultProps);
+    linkOnRedirect.id = 'linkOnRedirect';
+    linkOnRedirect.test = 'SHOULD expose the direct link to the linkset in an HTTP Link header when redirecting.';
+    linkOnRedirect.status = 'warn';
+    linkOnRedirect.msg = 'No link to the linkset detected when redirecting';
+    recordResult(linkOnRedirect);
+    
+    let legacyLinkHeaders  = Object.create(resultProps);
+    legacyLinkHeaders.id = 'legacyLinkHeaders';
+    legacyLinkHeaders.test = 'The inclusion of all possible links in the HTTP Link header was deprecated in version 1.0.0 of the GS1-Conformant resolver standard, February 2024';
+    legacyLinkHeaders.status = 'pass'; // This is unusual - we're setting this pass and will change to warn if we find a reason
+    legacyLinkHeaders.msg = 'No unnecessary links found in HTTP Link header';
+    recordResult(legacyLinkHeaders);
+
     let qsPassedOn = Object.create(resultProps);
     qsPassedOn.id = 'qsPassedOn';
     qsPassedOn.test = 'By default, SHALL pass on all key=value pairs in the query string of the request URI (if present) when redirecting';
@@ -1069,6 +1025,47 @@ const testQuery = (dl) =>
             qsPassedOn.msg = 'GS1 Digital Link URI not redirected so cannot test this feature';
         }
         recordResult(qsPassedOn);
+
+        let linkHeader = data.result['Link'];
+        if (!linkHeader) {linkHeader = data.result['link'];}
+        if (linkHeader)
+        {   
+            // we have a link header. 
+            // We just want to make sure that there's a link to the linkset.
+            // This means a link with a rel value of linkset 
+            // If there is more than one link in the header, we can see if they're still
+            // including all the links from the linkset. If so, we can warn and say that this
+            // is now deprecated.
+            
+            // console.log(`Link header is ${linkHeader}`);
+            let allLinks = linkHeader.split('",');
+            for (let i in allLinks)
+            {
+                if (!allLinks.hasOwnProperty(i))
+                {
+                    continue;
+                }
+                allLinks[i] += '"';
+            }
+
+            // So we have an array, each item in a link with all its attributes
+            // We just need to find a link with rel="linkset"
+            for (link in allLinks)
+            {
+                // console.log(`Looking at a link header ${allLinks[link]}`)
+                if (allLinks[link].indexOf('rel="linkset"') > -1){
+                    linkOnRedirect.status = 'pass';
+                    linkOnRedirect.msg = 'Link to the linkset detected when redirecting';
+                    recordResult(linkOnRedirect);
+                } 
+                if (allLinks[link].indexOf('rel="gs1:') > -1){
+                    // All we're looking for is a link with an @rel value that includes a gs1: CURIE
+                    legacyLinkHeaders.status = 'warn'; 
+                    legacyLinkHeaders.msg = 'Unnecessary links found in HTTP Link header';
+                    recordResult(legacyLinkHeaders);
+                }
+            }
+        }
     }
     return qsPassedOn;
 }
@@ -1395,10 +1392,12 @@ const testMultipleLinks = async (dl, linkType, arrayOfLinkObjects, threehundredL
 
                 if (stripLinkType(location, linkType) === stripLinkType(arrayOfLinkObjects[lo].href, linkType)) {
                     loObject.status = 'pass';
-                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected')
+                    loObject.msg = loObject.msg.replace('did not redirect', 'redirected');
+                    recordResult(loObject);
                 } else if (data.result['httpCode'] === 300) {
                     loObject.status = 'warn';
                     loObject.msg = `Resolver returned 300 Multiple Choices when requesting linkType ${linkType} — unable to verify redirect to ${arrayOfLinkObjects[lo].href}`;
+                    recordResult(loObject);
                 }
             }
         }
