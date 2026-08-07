@@ -979,12 +979,13 @@ const doesJSONSchemaPass = async (data, schemaUrl) =>
 const testQuery = (dl) =>
 {
     // *************** Need to look at the link header
-    let linkOnRedirect = Object.create(resultProps);
-    linkOnRedirect.id = 'linkOnRedirect';
-    linkOnRedirect.test = 'SHOULD expose the direct link to the linkset in an HTTP Link header when redirecting.';
-    linkOnRedirect.status = 'warn';
-    linkOnRedirect.msg = 'No link to the linkset detected when redirecting';
-    recordResult(linkOnRedirect);
+    // Commented out 2026-08-07. This requirement was removed in version 1.2.0
+    // let linkOnRedirect = Object.create(resultProps);
+    // linkOnRedirect.id = 'linkOnRedirect';
+    // linkOnRedirect.test = 'SHOULD expose the direct link to the linkset in an HTTP Link header when redirecting.';
+    // linkOnRedirect.status = 'warn';
+    // linkOnRedirect.msg = 'No link to the linkset detected when redirecting';
+    // recordResult(linkOnRedirect);
     
     let legacyLinkHeaders  = Object.create(resultProps);
     legacyLinkHeaders.id = 'legacyLinkHeaders';
@@ -1053,11 +1054,12 @@ const testQuery = (dl) =>
             for (link in allLinks)
             {
                 // console.log(`Looking at a link header ${allLinks[link]}`)
-                if (allLinks[link].indexOf('rel="linkset"') > -1){
-                    linkOnRedirect.status = 'pass';
-                    linkOnRedirect.msg = 'Link to the linkset detected when redirecting';
-                    recordResult(linkOnRedirect);
-                } 
+                // Commented out 2026-08-07. This requirement was removed in version 1.2.0
+                //if (allLinks[link].indexOf('rel="linkset"') > -1){
+                //    linkOnRedirect.status = 'pass';
+                //    linkOnRedirect.msg = 'Link to the linkset detected when redirecting';
+                //    recordResult(linkOnRedirect);
+                //} 
                 if (allLinks[link].indexOf('rel="gs1:') > -1){
                     // All we're looking for is a link with an @rel value that includes a gs1: CURIE
                     legacyLinkHeaders.status = 'warn'; 
