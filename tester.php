@@ -255,10 +255,12 @@ function getCorsHeaders(string $uri): array
         curl_setopt($ch, CURLOPT_NOBODY, true); // Fetch only response headers
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Do not follow redirects
         curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Timeout for the request
-        // Setup cURL HTTP Request Headers
+        // Access-Control-Request-Method must be one method token (Fetch).
+        // The allowed-method list is the response header Access-Control-Allow-Methods,
+        // which the suite checks for GET, HEAD and OPTIONS.
         $reqHeaders = [
             "Origin: https://ref.gs1.org/test-suites/resolver/",
-            "Access-Control-Request-Method: GET,HEAD,OPTIONS"
+            "Access-Control-Request-Method: GET"
         ];
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $reqHeaders);
